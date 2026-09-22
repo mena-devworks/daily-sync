@@ -1,6 +1,6 @@
 # daily-sync
 
-Small Cloudflare Worker + D1 app with a scheduled sync job.
+Small Cloudflare Pages + D1 app.
 
 ## Deploy
 
@@ -10,7 +10,7 @@ Repository secrets required:
 
 | Secret | Purpose |
 |---|---|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare token with Workers, D1 and R2 edit rights |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare token with Pages, D1 and R2 edit rights |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
 | `SETUP_CODE` | One-time code used to create the first account |
 

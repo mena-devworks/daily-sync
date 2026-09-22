@@ -112,3 +112,13 @@ CREATE TABLE IF NOT EXISTS audit (
   staff_id INTEGER, action TEXT NOT NULL, detail TEXT,
   at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+
+-- v2: CV file metadata (data kept here as base64 only while R2 is not enabled)
+CREATE TABLE IF NOT EXISTS cv_files (
+  subscriber_id INTEGER PRIMARY KEY REFERENCES subscribers(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, mime TEXT, size INTEGER NOT NULL,
+  store TEXT NOT NULL CHECK (store IN ('r2','d1')),
+  data TEXT,
+  uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

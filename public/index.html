@@ -38,6 +38,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;borde
     <label data-t="name"></label><input id="s-name">
     <label data-t="email"></label><input id="s-email" type="email">
     <label data-t="password"></label><input id="s-pw" type="password" autocomplete="new-password">
+    <label data-t="confirmPw"></label><input id="s-pw2" type="password" autocomplete="new-password">
     <div class="row" style="margin-top:16px"><button id="s-go" data-t="create"></button></div>
     <div class="msg" id="s-msg"></div>
   </div>
@@ -48,7 +49,19 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;borde
     <label data-t="email"></label><input id="l-email" type="email" autocomplete="username">
     <label data-t="password"></label><input id="l-pw" type="password" autocomplete="current-password">
     <div class="row" style="margin-top:16px"><button id="l-go" data-t="signIn"></button></div>
+    <div class="row" style="margin-top:8px"><button class="ghost sm" id="l-forgot" data-t="forgot"></button></div>
     <div class="msg" id="l-msg"></div>
+  </div>
+
+  <!-- recover with setup code -->
+  <div id="v-recover" class="card narrow hidden">
+    <h1 data-t="recoverTitle"></h1><p style="color:var(--mute)" data-t="recoverHint"></p>
+    <label data-t="setupCode"></label><input id="r-code" type="password" autocomplete="off">
+    <label data-t="email"></label><input id="r-email" type="email" autocomplete="username">
+    <label data-t="newPw"></label><input id="r-pw" type="password" autocomplete="new-password">
+    <label data-t="confirmPw"></label><input id="r-pw2" type="password" autocomplete="new-password">
+    <div class="row" style="margin-top:16px"><button id="r-go" data-t="save"></button><button class="ghost" id="r-back" data-t="back"></button></div>
+    <div class="msg" id="r-msg"></div>
   </div>
 
   <!-- set password (invite / reset link) -->
@@ -75,8 +88,8 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;borde
   </div>
 </div>
 <script>
-const T={en:{setupTitle:"First-time setup",setupHint:"Create the owner account. Needs the setup code saved in the repository secrets.",setupCode:"Setup code",name:"Name",email:"Email",password:"Password (10+ characters)",create:"Create owner",signIn:"Sign in",setPw:"Set your password",newPw:"New password (10+ characters)",confirmPw:"Confirm password",save:"Save",signOut:"Sign out",admins:"Team",addAdmin:"Add admin",add:"Add",role:"Role",status:"Status",active:"Active",disabled:"Disabled",noPw:"Invite pending",disable:"Disable",enable:"Enable",reset:"Reset link",subs:"Subscribers",activeSubs:"Active subscriptions",appsToday:"Applications today",autoPct:"Auto-applied today",lastRun:"Last run",never:"Never",mismatch:"Passwords do not match",pwDone:"Password saved. You can sign in now.",linkNote:"Send this one-time link to the person (valid 48 hours):",owner:"Owner",admin:"Admin"},
-ar:{setupTitle:"الإعداد لأول مرة",setupHint:"إنشاء حساب المالك. محتاج كود الإعداد المحفوظ في أسرار الريبو.",setupCode:"كود الإعداد",name:"الاسم",email:"الإيميل",password:"كلمة السر (10 حروف أو أكتر)",create:"إنشاء المالك",signIn:"تسجيل الدخول",setPw:"تعيين كلمة السر",newPw:"كلمة سر جديدة (10 حروف أو أكتر)",confirmPw:"تأكيد كلمة السر",save:"حفظ",signOut:"خروج",admins:"الفريق",addAdmin:"إضافة أدمن",add:"إضافة",role:"الدور",status:"الحالة",active:"نشط",disabled:"موقوف",noPw:"دعوة لسه ماتفعّلتش",disable:"إيقاف",enable:"تفعيل",reset:"لينك Reset",subs:"المشتركين",activeSubs:"اشتراكات سارية",appsToday:"تقديمات النهارده",autoPct:"أوتوماتيك النهارده",lastRun:"آخر تشغيل",never:"لسه",mismatch:"كلمتين السر مش زي بعض",pwDone:"اتحفظت. تقدر تدخل دلوقتي.",linkNote:"ابعت اللينك ده للشخص (صالح 48 ساعة، مرة واحدة):",owner:"مالك",admin:"أدمن"}};
+const T={en:{setupTitle:"First-time setup",setupHint:"Create the owner account. Needs the setup code saved in the repository secrets.",setupCode:"Setup code",name:"Name",email:"Email",password:"Password (10+ characters)",create:"Create owner",signIn:"Sign in",setPw:"Set your password",newPw:"New password (10+ characters)",confirmPw:"Confirm password",save:"Save",signOut:"Sign out",admins:"Team",addAdmin:"Add admin",add:"Add",role:"Role",status:"Status",active:"Active",disabled:"Disabled",noPw:"Invite pending",disable:"Disable",enable:"Enable",reset:"Reset link",subs:"Subscribers",activeSubs:"Active subscriptions",appsToday:"Applications today",autoPct:"Auto-applied today",lastRun:"Last run",never:"Never",mismatch:"Passwords do not match",pwDone:"Password saved. You can sign in now.",linkNote:"Send this one-time link to the person (valid 48 hours):",owner:"Owner",admin:"Admin",forgot:"Forgot your password?",recoverTitle:"Reset password",recoverHint:"Enter the setup code saved in the repository secrets, then choose a new password.",back:"Back"},
+ar:{setupTitle:"الإعداد لأول مرة",setupHint:"إنشاء حساب المالك. محتاج كود الإعداد المحفوظ في أسرار الريبو.",setupCode:"كود الإعداد",name:"الاسم",email:"الإيميل",password:"كلمة السر (10 حروف أو أكتر)",create:"إنشاء المالك",signIn:"تسجيل الدخول",setPw:"تعيين كلمة السر",newPw:"كلمة سر جديدة (10 حروف أو أكتر)",confirmPw:"تأكيد كلمة السر",save:"حفظ",signOut:"خروج",admins:"الفريق",addAdmin:"إضافة أدمن",add:"إضافة",role:"الدور",status:"الحالة",active:"نشط",disabled:"موقوف",noPw:"دعوة لسه ماتفعّلتش",disable:"إيقاف",enable:"تفعيل",reset:"لينك Reset",subs:"المشتركين",activeSubs:"اشتراكات سارية",appsToday:"تقديمات النهارده",autoPct:"أوتوماتيك النهارده",lastRun:"آخر تشغيل",never:"لسه",mismatch:"كلمتين السر مش زي بعض",pwDone:"اتحفظت. تقدر تدخل دلوقتي.",linkNote:"ابعت اللينك ده للشخص (صالح 48 ساعة، مرة واحدة):",owner:"مالك",admin:"أدمن",forgot:"نسيت كلمة السر؟",recoverTitle:"تغيير كلمة السر",recoverHint:"اكتب كود الإعداد المحفوظ في أسرار الريبو، واختار كلمة سر جديدة.",back:"رجوع"}};
 let lang=(()=>{try{return localStorage.getItem('lang')||'en'}catch{return'en'}})();
 const $=id=>document.getElementById(id), t=k=>T[lang][k]||k;
 function applyLang(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';
@@ -86,13 +99,16 @@ function applyLang(){document.documentElement.lang=lang;document.documentElement
 $('langBtn').onclick=()=>{lang=lang==='ar'?'en':'ar';try{localStorage.setItem('lang',lang)}catch{}applyLang();if(!$('v-home').classList.contains('hidden'))home();};
 async function call(path,opt={}){const r=await fetch(path,{method:opt.method||'GET',headers:{'content-type':'application/json'},body:opt.body?JSON.stringify(opt.body):undefined,credentials:'same-origin'});
   let d={};try{d=await r.json()}catch{}if(!r.ok)throw Object.assign(new Error(d.error||r.status),{status:r.status});return d;}
-function show(v){['setup','login','setpw','home'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));document.title=v==='home'?'Job Hunter Platform':'Sign in';}
+function show(v){['setup','login','setpw','recover','home'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));document.title=v==='home'?'Job Hunter Platform':'Sign in';}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function msg(id,text,ok){$(id).textContent=text;$(id).classList.toggle('ok',!!ok);}
 
-$('s-go').onclick=async()=>{try{await call('/api/setup',{method:'POST',body:{code:$('s-code').value,name:$('s-name').value,email:$('s-email').value,password:$('s-pw').value}});boot()}catch(e){msg('s-msg',e.message)}};
+$('s-go').onclick=async()=>{if($('s-pw').value!==$('s-pw2').value)return msg('s-msg',t('mismatch'));try{await call('/api/setup',{method:'POST',body:{code:$('s-code').value,name:$('s-name').value,email:$('s-email').value,password:$('s-pw').value}});boot()}catch(e){msg('s-msg',e.message)}};
 $('l-go').onclick=async()=>{try{await call('/api/login',{method:'POST',body:{email:$('l-email').value,password:$('l-pw').value}});boot()}catch(e){msg('l-msg',e.message)}};
 $('l-pw').onkeydown=e=>{if(e.key==='Enter')$('l-go').click()};
+$('l-forgot').onclick=()=>show('recover');$('r-back').onclick=()=>show('login');
+$('r-go').onclick=async()=>{if($('r-pw').value!==$('r-pw2').value)return msg('r-msg',t('mismatch'));
+  try{await call('/api/recover',{method:'POST',body:{code:$('r-code').value,email:$('r-email').value,password:$('r-pw').value}});msg('r-msg',t('pwDone'),true);setTimeout(()=>show('login'),1500)}catch(e){msg('r-msg',e.message)}};
 $('out').onclick=async()=>{await call('/api/logout',{method:'POST'}).catch(()=>{});boot()};
 $('p-go').onclick=async()=>{if($('p-pw').value!==$('p-pw2').value)return msg('p-msg',t('mismatch'));
   try{await call('/api/set-password',{method:'POST',body:{token:location.hash.split('=')[1],password:$('p-pw').value}});history.replaceState(null,'',location.pathname);msg('p-msg',t('pwDone'),true);setTimeout(boot,1500)}catch(e){msg('p-msg',e.message)}};

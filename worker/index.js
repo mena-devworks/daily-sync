@@ -140,6 +140,11 @@ function cleanSub(b) {
     if (!FIELDS.includes(f.field)) return { error: 'unknown field: ' + f.field };
     out.fields.push([f.field, f.enabled ? 1 : 0]);
   }
+  if (b.app_password) {
+    const ap = String(b.app_password).replace(/\s+/g, '');
+    if (ap.length < 8 || ap.length > 64) return { error: 'app password looks wrong' };
+    out.app_password = ap;
+  }
   out.clear_app_password = !!b.clear_app_password;
   return out;
 }
@@ -175,10 +180,11 @@ async function subRoutes(req, env, url, p, m, me) {
     if (s.error) return err(s.error);
     const start = todayStr();
     const end = s.sub_end || addDays(start, Number(await getSetting(env, 'default_sub_days')) || 30);
+    const ap = s.app_password ? await encryptSecret(env, s.app_password) : null;
     const ins = await env.DB.prepare(
       `INSERT INTO subscribers (slug, name, email, current_country, current_city, send_mode, app_password_enc, sub_start, sub_end, lang, created_by)
        VALUES (?,?,?,?,?,?,?,?,?,?,?)`
-    ).bind(randomToken(9), s.name, s.email, s.current_country, s.current_city, 'central', null, start, end, 'en', me.id).run();
+    ).bind(randomToken(9), s.name, s.email, s.current_country, s.current_city, ap ? 'app_password' : 'central', ap, start, end, 'en', me.id).run();
     const id = ins.meta.last_row_id;
     await saveSubLists(env, id, s);
     await audit(env, me.id, 'sub_add', { id, email: s.email });
@@ -205,9 +211,10 @@ async function subRoutes(req, env, url, p, m, me) {
   if (!act && m === 'PUT') {
     const s = cleanSub(await body(req));
     if (s.error) return err(s.error);
-    // The App Password is added by the subscriber from their own dashboard (phase 4); staff can only remove it
-    const ap = s.clear_app_password ? null : sub.app_password_enc;
-    const mode = ap ? sub.send_mode : 'central';
+    // Optional App Password: staff can add/replace/remove it here; the subscriber can also add it from their dashboard (phase 4)
+    let ap = s.clear_app_password ? null : sub.app_password_enc;
+    if (s.app_password) ap = await encryptSecret(env, s.app_password);
+    const mode = ap ? 'app_password' : 'central';
     await env.DB.prepare(
       `UPDATE subscribers SET name=?, email=?, current_country=?, current_city=?, send_mode=?, app_password_enc=?, sub_end=?, lang=?, updated_at=datetime('now') WHERE id=?`
     ).bind(s.name, s.email, s.current_country, s.current_city, mode, ap, s.sub_end || sub.sub_end, sub.lang, id).run();

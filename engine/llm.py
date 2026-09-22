@@ -18,14 +18,20 @@ class Gemini:
         self.models = self._pick()
 
     def _pick(self):
+        """Newest stable flash model the key can use (Google retires old ones for new keys)."""
         try:
             r = requests.get(f"{BASE}/models", params={"key": self.key, "pageSize": 200}, timeout=30).json()
             have = {m["name"].split("/")[-1] for m in r.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])}
         except Exception:
             have = set()
-        order = [m for m in PREFERRED if m in have]
-        if not order:  # newest flash the key can see
-            order = sorted([m for m in have if "flash" in m and "image" not in m and "tts" not in m and "live" not in m], reverse=True)[:3]
+        bad = ("image", "tts", "live", "audio", "embed", "thinking", "exp", "preview", "learnlm", "robotics", "computer")
+        def ver(m):
+            v = re.search(r"gemini-(\d+(?:\.\d+)?)", m)
+            return float(v.group(1)) if v else 0
+        flash = [m for m in have if m.startswith("gemini-") and "flash" in m and not any(b in m for b in bad) and not re.search(r"-\d{3}$", m)]
+        full = sorted([m for m in flash if "lite" not in m and ver(m)], key=ver, reverse=True)
+        lite = sorted([m for m in flash if "lite" in m and ver(m)], key=ver, reverse=True)
+        order = full[:2] + [m for m in ("gemini-flash-latest",) if m in have] + lite[:1]
         return order or PREFERRED[:2]
 
     def json(self, prompt, temperature=0.2):
@@ -48,7 +54,10 @@ class Gemini:
                 if r.status_code == 429 or r.status_code >= 500:
                     last_err = f"{model} {r.status_code}"; time.sleep(15 * (attempt + 1)); continue
                 if r.status_code != 200:
-                    last_err = f"{model} {r.status_code} {r.text[:200]}"; break
+                    last_err = f"{model} {r.status_code} {r.text[:200]}"
+                    if r.status_code == 404 and len(self.models) > 1:
+                        self.models = [m for m in self.models if m != model]  # retired for this key: skip it from now on
+                    break
                 self.calls += 1
                 try:
                     text = r.json()["candidates"][0]["content"]["parts"][0]["text"]

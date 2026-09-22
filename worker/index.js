@@ -115,6 +115,30 @@ async function api(req, env, url) {
     return json({ ok: true }, 200, { 'set-cookie': await newSession(env, 'staff', ins.meta.last_row_id) });
   }
 
+  // Owner/admin password recovery with the setup code (no email sending yet)
+  if (p === '/api/recover' && m === 'POST') {
+    if (!env.SETUP_CODE) return err('SETUP_CODE secret is not configured', 503);
+    if (await tooManyFails(env, 'recover')) return err('too many attempts, wait 15 minutes', 429);
+    const b = await body(req);
+    if (!safeEqual(String(b.code || ''), env.SETUP_CODE)) {
+      await env.DB.prepare('INSERT INTO login_fails (key) VALUES (?)').bind('recover').run();
+      return err('wrong setup code', 403);
+    }
+    if (!validPassword(b.password)) return err('password must be at least 10 characters');
+    const email = String(b.email || '').trim().toLowerCase();
+    const u = await env.DB.prepare('SELECT id FROM staff WHERE email = ?').bind(email).first();
+    if (!u) return err('no account with this email', 404);
+    const h = await hashPassword(b.password);
+    await env.DB.batch([
+      env.DB.prepare('UPDATE staff SET pw_hash = ?, pw_salt = ?, active = 1 WHERE id = ?').bind(h.hash, h.salt, u.id),
+      env.DB.prepare("DELETE FROM sessions WHERE kind='staff' AND user_id = ?").bind(u.id),
+      env.DB.prepare('DELETE FROM login_fails WHERE key = ?').bind('staff:' + email),
+      env.DB.prepare('DELETE FROM login_fails WHERE key = ?').bind('recover'),
+    ]);
+    await audit(env, u.id, 'password_recover', { email });
+    return json({ ok: true });
+  }
+
   if (p === '/api/login' && m === 'POST') {
     const b = await body(req);
     const email = String(b.email || '').trim().toLowerCase();

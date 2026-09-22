@@ -406,7 +406,18 @@ async function api(req, env, url) {
       env.DB.prepare("SELECT COUNT(*) n FROM applications WHERE method='email' AND substr(created_at,1,10) = ?").bind(today).first(),
       env.DB.prepare('SELECT place, started_at, finished_at, status FROM runs ORDER BY id DESC LIMIT 1').first(),
     ]);
-    return json({ subscribers: subs.n, active: active.n, applicationsToday: appsToday.n, autoToday: autoToday.n, lastRun, storage: !!env.FILES });
+    const d14 = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10), d7 = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+    const [daily, fields, jobs7, cities, st] = await Promise.all([
+      env.DB.prepare("SELECT substr(created_at,1,10) d, SUM(method='email' AND status='sent') e, SUM(status='manual') m FROM applications WHERE substr(created_at,1,10) >= ? GROUP BY d").bind(d14).all(),
+      env.DB.prepare('SELECT field, COUNT(*) n FROM jobs WHERE substr(fetched_at,1,10) >= ? GROUP BY field ORDER BY n DESC LIMIT 8').bind(d7).all(),
+      env.DB.prepare('SELECT COUNT(*) n, SUM(apply_email IS NOT NULL) e FROM jobs WHERE substr(fetched_at,1,10) >= ?').bind(d7).first(),
+      env.DB.prepare('SELECT COUNT(DISTINCT c.country || c.city) n, COUNT(DISTINCT f.field) f FROM subscribers s LEFT JOIN subscriber_cities c ON c.subscriber_id = s.id AND c.enabled = 1 LEFT JOIN subscriber_fields f ON f.subscriber_id = s.id AND f.enabled = 1 WHERE s.locked = 0 AND s.sub_end >= ?').bind(today).first(),
+      env.DB.prepare("SELECT key, value FROM settings WHERE key IN ('run_time_cloud','engine_live')").all(),
+    ]);
+    const S = Object.fromEntries(st.results.map((x) => [x.key, x.value]));
+    return json({ subscribers: subs.n, active: active.n, applicationsToday: appsToday.n, autoToday: autoToday.n, lastRun, storage: !!env.FILES,
+      daily: daily.results, fields: fields.results, jobs7: jobs7.n || 0, jobs7Email: jobs7.e || 0, cities: cities.n || 0, fieldsActive: cities.f || 0,
+      runTime: S.run_time_cloud || SETTING_DEFAULTS.run_time_cloud, live: (S.engine_live || '0') === '1' });
   }
 
   // phase 3: engine runs. The GitHub workflow checks every 15 min and starts when run_requested is newer than the last run.

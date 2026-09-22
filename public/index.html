@@ -24,6 +24,16 @@ button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:start}th{color:var(--mute);font-weight:500}
 .pill{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
 .link{word-break:break-all;background:var(--bg);padding:8px;border-radius:8px;font-size:13px;margin-top:8px}
+.tabs{margin-bottom:16px}.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px}
+select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+h3{font-size:15px;margin:20px 0 8px}.mute{color:var(--mute)}small{font-size:12px}a{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{display:inline-flex;align-items:center;gap:6px;margin:0;padding:5px 10px;border:1px solid var(--line);border-radius:99px;font-size:13px;color:var(--ink);cursor:pointer}
+.chip input,.opt input{width:auto;margin:0}.chip:has(input:checked){border-color:var(--acc);background:color-mix(in srgb,var(--acc) 14%,transparent)}
+.opt{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:14px;margin:6px 0}
+details{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:8px}summary{cursor:pointer;font-weight:500}
+.pill.active{color:var(--ok);border-color:var(--ok)}.pill.expired{color:var(--mute)}.pill.locked{color:var(--bad);border-color:var(--bad)}
+td.acts{white-space:nowrap}input[type=file]{padding:8px}button:disabled{opacity:.6}
 .hidden{display:none}
 </style>
 </head>
@@ -77,8 +87,41 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;borde
   <div id="v-home" class="hidden">
     <div class="row" style="margin-bottom:16px"><h1>Job Hunter Platform</h1><span class="sp"></span>
       <span id="who" style="color:var(--mute);font-size:14px"></span><button class="ghost sm" id="out" data-t="signOut"></button></div>
-    <div class="kpis card" id="kpis"></div>
-    <div class="card" id="c-staff">
+    <div class="row tabs" id="tabs"><button class="ghost sm" data-tab="overview" data-t="overview"></button><button class="ghost sm" data-tab="subs" data-t="subs"></button><button class="ghost sm own" data-tab="team" data-t="admins"></button><button class="ghost sm own" data-tab="settings" data-t="settings"></button></div>
+    <div class="kpis card" id="kpis" data-p="overview"></div>
+
+    <div class="card hidden" data-p="subs">
+      <div class="row"><h2 style="margin:0" data-t="subs"></h2><span class="sp"></span><input id="q" style="max-width:220px" data-ph="search"><button id="addSub" data-t="addSub"></button></div>
+      <div style="overflow-x:auto"><table style="margin-top:12px"><thead><tr><th data-t="name"></th><th data-t="status"></th><th data-t="subEnd"></th><th data-t="citiesFields"></th><th data-t="appsTodayShort"></th><th>CV</th><th></th></tr></thead><tbody id="subs"></tbody></table></div>
+      <div class="msg" id="s2-msg"></div>
+    </div>
+
+    <div class="card hidden" data-p="edit">
+      <div class="row"><h2 style="margin:0" id="e-title"></h2><span class="sp"></span><button class="ghost sm" id="e-cancel" data-t="back"></button></div>
+      <div class="grid2">
+        <div><label data-t="name"></label><input id="e-name"></div>
+        <div><label data-t="email"></label><input id="e-email" type="email"></div>
+        <div><label data-t="curCountry"></label><select id="e-country"><option value="">—</option><option value="EG">Egypt / مصر</option><option value="AE">UAE / الإمارات</option><option value="SA">Saudi Arabia / السعودية</option><option value="OTHER">Other / أخرى</option></select></div>
+        <div><label data-t="curCity"></label><input id="e-city"></div>
+        <div><label data-t="subLang"></label><select id="e-lang"><option value="en">English</option><option value="ar">العربية</option></select></div>
+        <div><label data-t="subEnd"></label><div class="row"><input id="e-end" type="date" style="flex:1;width:auto"><button class="ghost sm" id="e-plus" data-t="plusMonth"></button></div><small class="mute" id="e-start"></small></div>
+      </div>
+      <label data-t="cv"></label><input id="e-cv" type="file" accept=".pdf,.docx,.txt">
+      <small class="mute"><span id="e-cvinfo"></span> <a id="e-cvdl" class="hidden" data-t="download"></a></small>
+      <h3 data-t="sendMode"></h3>
+      <label class="opt"><input type="radio" name="e-mode" value="app_password"><span data-t="modeApp"></span></label>
+      <label class="opt"><input type="radio" name="e-mode" value="central"><span data-t="modeCentral"></span></label>
+      <div id="e-apbox"><label data-t="appPw"></label><input id="e-ap" type="password" autocomplete="new-password" style="max-width:320px">
+        <div id="e-aphas" class="hidden"><small class="mute" data-t="apSaved"></small><label class="opt"><input type="checkbox" id="e-apclear"><span data-t="apClear"></span></label></div></div>
+      <h3 data-t="cities"></h3><div id="e-cities"></div>
+      <h3 data-t="fields"></h3><p class="mute" style="margin:0 0 8px;font-size:13px" data-t="fieldsHint"></p><div id="e-fields" class="chips"></div>
+      <div class="row" style="margin-top:20px"><button id="e-save" data-t="save"></button><span class="sp"></span><button class="ghost sm" id="e-del" data-t="delete"></button></div>
+      <div class="msg" id="e-msg"></div>
+    </div>
+
+    <div class="card hidden" data-p="settings"><h2 data-t="settings"></h2><p class="mute" style="font-size:13px" data-t="settingsHint"></p>
+      <div class="grid2" id="set-form"></div><div class="row" style="margin-top:16px"><button id="set-save" data-t="save"></button></div><div class="msg" id="set-msg"></div></div>
+    <div class="card hidden" id="c-staff" data-p="team">
       <h2 data-t="admins"></h2>
       <table><thead><tr><th data-t="name"></th><th data-t="email"></th><th data-t="role"></th><th data-t="status"></th><th></th></tr></thead><tbody id="staff"></tbody></table>
       <h2 style="margin-top:20px" data-t="addAdmin"></h2>
@@ -88,15 +131,15 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;borde
   </div>
 </div>
 <script>
-const T={en:{setupTitle:"First-time setup",setupHint:"Create the owner account. Needs the setup code saved in the repository secrets.",setupCode:"Setup code",name:"Name",email:"Email",password:"Password (10+ characters)",create:"Create owner",signIn:"Sign in",setPw:"Set your password",newPw:"New password (10+ characters)",confirmPw:"Confirm password",save:"Save",signOut:"Sign out",admins:"Team",addAdmin:"Add admin",add:"Add",role:"Role",status:"Status",active:"Active",disabled:"Disabled",noPw:"Invite pending",disable:"Disable",enable:"Enable",reset:"Reset link",subs:"Subscribers",activeSubs:"Active subscriptions",appsToday:"Applications today",autoPct:"Auto-applied today",lastRun:"Last run",never:"Never",mismatch:"Passwords do not match",pwDone:"Password saved. You can sign in now.",linkNote:"Send this one-time link to the person (valid 48 hours):",owner:"Owner",admin:"Admin",forgot:"Forgot your password?",recoverTitle:"Reset password",recoverHint:"Enter the setup code saved in the repository secrets, then choose a new password.",back:"Back"},
-ar:{setupTitle:"الإعداد لأول مرة",setupHint:"إنشاء حساب المالك. محتاج كود الإعداد المحفوظ في أسرار الريبو.",setupCode:"كود الإعداد",name:"الاسم",email:"الإيميل",password:"كلمة السر (10 حروف أو أكتر)",create:"إنشاء المالك",signIn:"تسجيل الدخول",setPw:"تعيين كلمة السر",newPw:"كلمة سر جديدة (10 حروف أو أكتر)",confirmPw:"تأكيد كلمة السر",save:"حفظ",signOut:"خروج",admins:"الفريق",addAdmin:"إضافة أدمن",add:"إضافة",role:"الدور",status:"الحالة",active:"نشط",disabled:"موقوف",noPw:"دعوة لسه ماتفعّلتش",disable:"إيقاف",enable:"تفعيل",reset:"لينك Reset",subs:"المشتركين",activeSubs:"اشتراكات سارية",appsToday:"تقديمات النهارده",autoPct:"أوتوماتيك النهارده",lastRun:"آخر تشغيل",never:"لسه",mismatch:"كلمتين السر مش زي بعض",pwDone:"اتحفظت. تقدر تدخل دلوقتي.",linkNote:"ابعت اللينك ده للشخص (صالح 48 ساعة، مرة واحدة):",owner:"مالك",admin:"أدمن",forgot:"نسيت كلمة السر؟",recoverTitle:"تغيير كلمة السر",recoverHint:"اكتب كود الإعداد المحفوظ في أسرار الريبو، واختار كلمة سر جديدة.",back:"رجوع"}};
+const T={en:{setupTitle:"First-time setup",setupHint:"Create the owner account. Needs the setup code saved in the repository secrets.",setupCode:"Setup code",name:"Name",email:"Email",password:"Password (10+ characters)",create:"Create owner",signIn:"Sign in",setPw:"Set your password",newPw:"New password (10+ characters)",confirmPw:"Confirm password",save:"Save",signOut:"Sign out",admins:"Team",addAdmin:"Add admin",add:"Add",role:"Role",status:"Status",active:"Active",disabled:"Disabled",noPw:"Invite pending",disable:"Disable",enable:"Enable",reset:"Reset link",subs:"Subscribers",activeSubs:"Active subscriptions",appsToday:"Applications today",autoPct:"Auto-applied today",lastRun:"Last run",never:"Never",mismatch:"Passwords do not match",pwDone:"Password saved. You can sign in now.",linkNote:"Send this one-time link to the person (valid 48 hours):",owner:"Owner",admin:"Admin",forgot:"Forgot your password?",recoverTitle:"Reset password",recoverHint:"Enter the setup code saved in the repository secrets, then choose a new password.",back:"Back",overview:"Overview",settings:"Settings",search:"Search…",addSub:"Add subscriber",editSub:"Edit subscriber",subEnd:"Subscription ends",citiesFields:"Cities / Fields",appsTodayShort:"Today (auto %)",edit:"Edit",renew:"Renew +1 month",lock:"Lock",unlock:"Unlock",locked:"Locked",expired:"Expired",noSubs:"No subscribers yet.",curCountry:"Current country",curCity:"Current city",subLang:"Dashboard language",plusMonth:"+1 month",subStart:"Started",autoMonth:"Empty = one month from today",cv:"CV (PDF, DOCX or TXT)",noCv:"No CV uploaded yet",download:"Download",sendMode:"Sending method",modeApp:"Subscriber's Gmail with an App Password (recommended)",modeCentral:"Central tool email (Reply-To = subscriber, small daily limit)",appPw:"App Password (typed by the admin, stored encrypted)",apSaved:"An App Password is saved. Leave the box empty to keep it.",apClear:"Remove the saved App Password",cities:"Search cities",fields:"Job fields",fieldsHint:"Leave empty and the AI will pick the best ones from the CV (you can edit them later).",all:"All",none:"None",delete:"Delete",confirmDel:"Delete this subscriber and all their data?",needCity:"Choose at least one search city",tooBig:"The CV file is too large",saving:"Saving…",saved:"Saved",cvFail:"Saved, but the CV upload failed",settingsHint:"These apply to all subscribers. Times are Cairo time.",set_daily_apply_limit:"Max applications per subscriber per day",set_central_daily_limit:"Max central-email applications per subscriber per day",set_min_match_score:"Minimum match score to apply (0–100)",set_email_cooldown_days:"Days before applying to the same email again",set_default_sub_days:"Default subscription length (days)",set_auto_fields_count:"Fields the AI picks when none are set",set_run_time_cloud:"Daily cloud run time"},
+ar:{setupTitle:"الإعداد لأول مرة",setupHint:"إنشاء حساب المالك. محتاج كود الإعداد المحفوظ في أسرار الريبو.",setupCode:"كود الإعداد",name:"الاسم",email:"الإيميل",password:"كلمة السر (10 حروف أو أكتر)",create:"إنشاء المالك",signIn:"تسجيل الدخول",setPw:"تعيين كلمة السر",newPw:"كلمة سر جديدة (10 حروف أو أكتر)",confirmPw:"تأكيد كلمة السر",save:"حفظ",signOut:"خروج",admins:"الفريق",addAdmin:"إضافة أدمن",add:"إضافة",role:"الدور",status:"الحالة",active:"نشط",disabled:"موقوف",noPw:"دعوة لسه ماتفعّلتش",disable:"إيقاف",enable:"تفعيل",reset:"لينك Reset",subs:"المشتركين",activeSubs:"اشتراكات سارية",appsToday:"تقديمات النهارده",autoPct:"أوتوماتيك النهارده",lastRun:"آخر تشغيل",never:"لسه",mismatch:"كلمتين السر مش زي بعض",pwDone:"اتحفظت. تقدر تدخل دلوقتي.",linkNote:"ابعت اللينك ده للشخص (صالح 48 ساعة، مرة واحدة):",owner:"مالك",admin:"أدمن",forgot:"نسيت كلمة السر؟",recoverTitle:"تغيير كلمة السر",recoverHint:"اكتب كود الإعداد المحفوظ في أسرار الريبو، واختار كلمة سر جديدة.",back:"رجوع",overview:"نظرة عامة",settings:"الإعدادات",search:"بحث…",addSub:"إضافة مشترك",editSub:"تعديل مشترك",subEnd:"نهاية الاشتراك",citiesFields:"المدن / المجالات",appsTodayShort:"النهارده (أوتوماتيك %)",edit:"تعديل",renew:"تجديد شهر",lock:"قفل",unlock:"فتح",locked:"مقفول",expired:"منتهي",noSubs:"لسه مفيش مشتركين.",curCountry:"البلد الحالي",curCity:"المدينة الحالية",subLang:"لغة الداشبورد",plusMonth:"+ شهر",subStart:"بدأ",autoMonth:"فاضي = شهر من النهارده",cv:"السي في (PDF أو DOCX أو TXT)",noCv:"لسه مفيش سي في",download:"تحميل",sendMode:"طريقة الإرسال",modeApp:"جيميل المشترك بـ App Password (الأفضل)",modeCentral:"الإيميل المركزي للأداة (الرد يروح للمشترك، بحد يومي صغير)",appPw:"الـ App Password (الأدمن بيكتبه، وبيتحفظ متشفّر)",apSaved:"فيه App Password محفوظ. سيب الخانة فاضية عشان يفضل زي ما هو.",apClear:"مسح الـ App Password المحفوظ",cities:"مدن البحث",fields:"المجالات",fieldsHint:"لو سبتها فاضية، الـ AI هيختار الأنسب من السي في (وتقدر تعدّلها بعدين).",all:"الكل",none:"ولا حاجة",delete:"حذف",confirmDel:"حذف المشترك ده وكل بياناته؟",needCity:"اختار مدينة بحث واحدة على الأقل",tooBig:"ملف السي في كبير",saving:"بيتحفظ…",saved:"اتحفظ",cvFail:"اتحفظ، بس رفع السي في فشل",settingsHint:"بتتطبق على كل المشتركين. المواعيد بتوقيت القاهرة.",set_daily_apply_limit:"أقصى تقديمات للمشترك في اليوم",set_central_daily_limit:"أقصى تقديمات بالإيميل المركزي للمشترك في اليوم",set_min_match_score:"أقل درجة تطابق للتقديم (0–100)",set_email_cooldown_days:"أيام قبل التقديم على نفس الإيميل تاني",set_default_sub_days:"مدة الاشتراك الافتراضية (أيام)",set_auto_fields_count:"عدد المجالات اللي الـ AI يختارها لو مفيش",set_run_time_cloud:"ميعاد التشغيل السحابي اليومي"}};
 let lang=(()=>{try{return localStorage.getItem('lang')||'en'}catch{return'en'}})();
 const $=id=>document.getElementById(id), t=k=>T[lang][k]||k;
 function applyLang(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));
   document.querySelectorAll('[data-ph]').forEach(e=>e.placeholder=t(e.dataset.ph));
   $('langBtn').textContent=lang==='ar'?'English':'العربية';}
-$('langBtn').onclick=()=>{lang=lang==='ar'?'en':'ar';try{localStorage.setItem('lang',lang)}catch{}applyLang();if(!$('v-home').classList.contains('hidden'))home();};
+$('langBtn').onclick=()=>{lang=lang==='ar'?'en':'ar';try{localStorage.setItem('lang',lang)}catch{}applyLang();if(!$('v-home').classList.contains('hidden'))relang();};
 async function call(path,opt={}){const r=await fetch(path,{method:opt.method||'GET',headers:{'content-type':'application/json'},body:opt.body?JSON.stringify(opt.body):undefined,credentials:'same-origin'});
   let d={};try{d=await r.json()}catch{}if(!r.ok)throw Object.assign(new Error(d.error||r.status),{status:r.status});return d;}
 function show(v){['setup','login','setpw','recover','home'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));document.title=v==='home'?'Job Hunter Platform':'Sign in';}
@@ -122,11 +165,86 @@ async function loadStaff(){const rows=await call('/api/staff');
   $('staff').querySelectorAll('button').forEach(b=>b.onclick=async()=>{try{const d=await call(`/api/staff/${b.dataset.id}/${b.dataset.a}`,{method:'POST'});
     if(d.link){$('a-msg').innerHTML=esc(t('linkNote'))+'<div class="link">'+esc(d.link)+'</div>';$('a-msg').classList.add('ok')}loadStaff()}catch(e){msg('a-msg',e.message)}});}
 
-async function home(){show('home');const me=await call('/api/me');$('who').textContent=me.name+' · '+t(me.role);
-  const o=await call('/api/overview');const pct=o.applicationsToday?Math.round(100*o.autoToday/o.applicationsToday)+'%':'—';
+let ME=null,CAT=null,SUBS=[],TAB='overview',EDIT=null,KNOWN={c:new Set(),f:new Set()};
+const today=()=>new Date().toISOString().slice(0,10);
+const CO={AE:['United Arab Emirates','الإمارات'],EG:['Egypt','مصر'],SA:['Saudi Arabia','السعودية']};
+const AR={"Abu Dhabi":"أبوظبي","Dubai":"دبي","Sharjah":"الشارقة","Ajman":"عجمان","Umm Al Quwain":"أم القيوين","Ras Al Khaimah":"رأس الخيمة","Fujairah":"الفجيرة",
+"Cairo":"القاهرة","Giza":"الجيزة","Alexandria":"الإسكندرية","Qalyubia":"القليوبية","Sharqia":"الشرقية","Dakahlia":"الدقهلية","Gharbia":"الغربية","Monufia":"المنوفية","Beheira":"البحيرة","Kafr El Sheikh":"كفر الشيخ","Damietta":"دمياط","Port Said":"بورسعيد","Ismailia":"الإسماعيلية","Suez":"السويس","North Sinai":"شمال سيناء","South Sinai":"جنوب سيناء","Red Sea":"البحر الأحمر","Matrouh":"مطروح","New Valley":"الوادي الجديد","Faiyum":"الفيوم","Beni Suef":"بني سويف","Minya":"المنيا","Asyut":"أسيوط","Sohag":"سوهاج","Qena":"قنا","Luxor":"الأقصر","Aswan":"أسوان",
+"Riyadh":"الرياض","Jeddah":"جدة","Mecca":"مكة","Medina":"المدينة المنورة","Dammam":"الدمام","Khobar":"الخبر","Dhahran":"الظهران","Jubail":"الجبيل","Al Ahsa":"الأحساء","Taif":"الطائف","Tabuk":"تبوك","Abha":"أبها","Khamis Mushait":"خميس مشيط","Buraidah":"بريدة","Hail":"حائل","Yanbu":"ينبع","Jazan":"جازان","Najran":"نجران",
+"Accounting & Finance":"محاسبة ومالية","Banking":"بنوك","Sales":"مبيعات","Marketing":"تسويق","Customer Service":"خدمة عملاء","Administration & Secretarial":"إدارة وسكرتارية","Reception & Front Office":"استقبال","Human Resources":"موارد بشرية","IT & Software":"تقنية وبرمجة","Data & Analytics":"بيانات وتحليل","Civil Engineering":"هندسة مدنية","Mechanical Engineering":"هندسة ميكانيكية","Electrical Engineering":"هندسة كهربائية","Construction & Site Management":"مقاولات وإدارة مواقع","Project Management":"إدارة مشاريع","Healthcare & Nursing":"رعاية صحية وتمريض","Pharmacy":"صيدلة","Education & Teaching":"تعليم وتدريس","Hospitality & Hotels":"فنادق وضيافة","Tourism & Travel":"سياحة وسفر","Food & Beverage":"مطاعم ومشروبات","Retail":"تجزئة","Logistics & Supply Chain":"لوجستيات وسلاسل إمداد","Procurement":"مشتريات","Real Estate":"عقارات","Graphic Design & Creative":"تصميم وإبداع","Legal":"قانوني","Security":"أمن وحراسة","Driving & Delivery":"قيادة وتوصيل"};
+const nm=s=>lang==='ar'&&AR[s]||s;
+function tab(x){if(ME&&ME.role!=='owner'&&(x==='team'||x==='settings'))x='overview';TAB=x;
+  document.querySelectorAll('#v-home [data-p]').forEach(e=>e.classList.toggle('hidden',e.dataset.p!==x));
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===x||(x==='edit'&&b.dataset.tab==='subs')));
+  const f={overview:loadKpis,subs:loadSubs,team:loadStaff,settings:loadSettings}[x];if(f)f().catch(e=>msg('s2-msg',e.message));}
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+async function home(){show('home');ME=await call('/api/me');$('who').textContent=ME.name+' · '+t(ME.role);
+  CAT=CAT||await call('/api/catalog');document.querySelectorAll('.own').forEach(e=>e.classList.toggle('hidden',ME.role!=='owner'));tab(TAB==='edit'?'subs':TAB);}
+function relang(){if(!ME)return;$('who').textContent=ME.name+' · '+t(ME.role);if(TAB==='edit'){const s=readEdit();renderLists(s.cities,s.fields);$('e-title').textContent=t(EDIT?'editSub':'addSub')}else tab(TAB);}
+
+const stat=s=>s.locked?'locked':s.sub_end<today()?'expired':'active';
+async function loadSubs(){SUBS=await call('/api/subscribers');drawSubs();}
+function drawSubs(){const q=$('q').value.trim().toLowerCase();const rows=SUBS.filter(s=>!q||(s.name+' '+s.email).toLowerCase().includes(q));
+  $('subs').innerHTML=rows.map(s=>`<tr><td><b>${esc(s.name)}</b><br><small class="mute">${esc(s.email)}</small></td><td><span class="pill ${stat(s)}">${t(stat(s))}</span></td><td>${esc(s.sub_end)}</td><td>${s.cities} / ${s.fields}</td>
+   <td>${s.apps_today}${s.apps_today?' ('+Math.round(100*s.auto_today/s.apps_today)+'%)':''}</td><td>${s.has_cv?'✓':'—'}</td>
+   <td class="acts"><button class="ghost sm" data-a="edit" data-id="${s.id}">${t('edit')}</button> <button class="ghost sm" data-a="renew" data-id="${s.id}">${t('renew')}</button> <button class="ghost sm" data-a="${s.locked?'unlock':'lock'}" data-id="${s.id}">${t(s.locked?'unlock':'lock')}</button></td></tr>`).join('')||`<tr><td colspan="7" class="mute">${t('noSubs')}</td></tr>`;
+  $('subs').querySelectorAll('button').forEach(b=>b.onclick=async()=>{if(b.dataset.a==='edit')return openEdit(+b.dataset.id).catch(e=>msg('s2-msg',e.message));
+    try{await call(`/api/subscribers/${b.dataset.id}/${b.dataset.a}`,{method:'POST'});loadSubs()}catch(e){msg('s2-msg',e.message)}});}
+$('q').oninput=drawSubs;$('addSub').onclick=()=>openEdit(null);
+
+async function openEdit(id){EDIT=id;msg('e-msg','');$('e-cv').value='';
+  const s=id?await call('/api/subscribers/'+id):{name:'',email:'',current_country:'',current_city:'',lang:'en',send_mode:'central',sub_end:'',cities:[],fields:[]};
+  $('e-title').textContent=t(id?'editSub':'addSub');$('e-name').value=s.name;$('e-email').value=s.email;$('e-country').value=s.current_country||'';
+  $('e-city').value=s.current_city||'';$('e-lang').value=s.lang;$('e-end').value=s.sub_end||'';$('e-start').textContent=id?t('subStart')+': '+s.sub_start:t('autoMonth');
+  document.querySelectorAll('[name=e-mode]').forEach(r=>r.checked=r.value===s.send_mode);$('e-ap').value='';$('e-apclear').checked=false;
+  $('e-aphas').classList.toggle('hidden',!s.has_app_password);modeUI();
+  $('e-cvinfo').textContent=s.cv?`${s.cv.name} · ${Math.max(1,Math.round(s.cv.size/1024))} KB · ${s.cv.uploaded_at.slice(0,10)}`:t('noCv');
+  $('e-cvdl').classList.toggle('hidden',!s.cv);if(s.cv)$('e-cvdl').href=`/api/subscribers/${id}/cv`;
+  $('e-del').classList.toggle('hidden',!id||ME.role!=='owner');renderLists(s.cities,s.fields);tab('edit');window.scrollTo(0,0);}
+function modeUI(){$('e-apbox').classList.toggle('hidden',(document.querySelector('[name=e-mode]:checked')||{}).value!=='app_password');}
+document.querySelectorAll('[name=e-mode]').forEach(r=>r.onchange=modeUI);
+function renderLists(cities,fields){KNOWN={c:new Set(cities.map(c=>c.country+'|'+c.city)),f:new Set(fields.map(f=>f.field))};
+  const on=new Set(cities.filter(c=>c.enabled).map(c=>c.country+'|'+c.city)),fon=new Set(fields.filter(f=>f.enabled).map(f=>f.field));
+  $('e-cities').innerHTML=Object.entries(CAT.cities).map(([co,list])=>`<details ${list.some(c=>on.has(co+'|'+c))?'open':''}><summary>${esc(CO[co][lang==='ar'?1:0])} <small class="mute" data-cnt="${co}"></small></summary>
+    <div class="row" style="margin:8px 0"><button class="ghost sm" data-all="${co}">${t('all')}</button><button class="ghost sm" data-none="${co}">${t('none')}</button></div>
+    <div class="chips">${list.map(c=>`<label class="chip"><input type="checkbox" data-co="${co}" value="${esc(c)}" ${on.has(co+'|'+c)?'checked':''}>${esc(nm(c))}</label>`).join('')}</div></details>`).join('');
+  $('e-fields').innerHTML=CAT.fields.map(f=>`<label class="chip"><input type="checkbox" value="${esc(f)}" ${fon.has(f)?'checked':''}>${esc(nm(f))}</label>`).join('');
+  $('e-cities').querySelectorAll('[data-all],[data-none]').forEach(b=>b.onclick=()=>{const co=b.dataset.all||b.dataset.none;
+    $('e-cities').querySelectorAll(`input[data-co="${co}"]`).forEach(i=>i.checked=!!b.dataset.all);counts()});
+  $('e-cities').onchange=counts;counts();}
+function counts(){Object.keys(CAT.cities).forEach(co=>{const n=$('e-cities').querySelectorAll(`input[data-co="${co}"]:checked`).length;$('e-cities').querySelector(`[data-cnt="${co}"]`).textContent=n?'('+n+')':''})}
+function readEdit(){const cities=[],fields=[];
+  $('e-cities').querySelectorAll('input').forEach(i=>{if(i.checked||KNOWN.c.has(i.dataset.co+'|'+i.value))cities.push({country:i.dataset.co,city:i.value,enabled:i.checked})});
+  $('e-fields').querySelectorAll('input').forEach(i=>{if(i.checked||KNOWN.f.has(i.value))fields.push({field:i.value,enabled:i.checked})});
+  return {name:$('e-name').value,email:$('e-email').value,current_country:$('e-country').value,current_city:$('e-city').value,lang:$('e-lang').value,
+    send_mode:(document.querySelector('[name=e-mode]:checked')||{}).value,sub_end:$('e-end').value||undefined,app_password:$('e-ap').value||undefined,clear_app_password:$('e-apclear').checked,cities,fields};}
+$('e-plus').onclick=()=>{const v=$('e-end').value,d=new Date(v&&v>today()?v:today());d.setUTCMonth(d.getUTCMonth()+1);$('e-end').value=d.toISOString().slice(0,10)};
+$('e-cancel').onclick=()=>tab('subs');
+$('e-del').onclick=async()=>{if(!confirm(t('confirmDel')))return;try{await call('/api/subscribers/'+EDIT,{method:'DELETE'});tab('subs')}catch(e){msg('e-msg',e.message)}};
+const CDN='https://cdnjs.cloudflare.com/ajax/libs/';
+const loadJs=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+async function cvText(f){const ext=f.name.split('.').pop().toLowerCase();
+  try{if(ext==='txt')return await f.text();
+    if(ext==='pdf'){if(!window.pdfjsLib)await loadJs(CDN+'pdf.js/3.11.174/pdf.min.js');pdfjsLib.GlobalWorkerOptions.workerSrc=CDN+'pdf.js/3.11.174/pdf.worker.min.js';
+      const d=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let s='';for(let i=1;i<=d.numPages;i++){const c=await(await d.getPage(i)).getTextContent();s+=c.items.map(x=>x.str).join(' ')+'\n'}return s}
+    if(ext==='docx'){if(!window.mammoth)await loadJs(CDN+'mammoth/1.6.0/mammoth.browser.min.js');return(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value}
+  }catch(e){console.warn('cv text',e)}return '';}
+$('e-save').onclick=async()=>{const b=readEdit();if(!b.cities.some(c=>c.enabled))return msg('e-msg',t('needCity'));
+  const f=$('e-cv').files[0];if(f&&f.size>(CAT.storage?5e6:7e5))return msg('e-msg',t('tooBig')+' (max '+(CAT.storage?'5 MB':'700 KB')+')');
+  $('e-save').disabled=true;msg('e-msg',t('saving'),true);
+  try{let id=EDIT;if(id)await call('/api/subscribers/'+id,{method:'PUT',body:b});else{id=(await call('/api/subscribers',{method:'POST',body:b})).id;EDIT=id}
+    if(f){const fd=new FormData();fd.append('file',f);fd.append('text',await cvText(f));
+      const r=await fetch(`/api/subscribers/${id}/cv`,{method:'POST',body:fd,credentials:'same-origin'});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(t('cvFail')+': '+(d.error||r.status))}
+    msg('e-msg',t('saved'),true);setTimeout(()=>tab('subs'),700)}catch(e){msg('e-msg',e.message)}finally{$('e-save').disabled=false}};
+
+const SET=[['daily_apply_limit','number'],['central_daily_limit','number'],['min_match_score','number'],['email_cooldown_days','number'],['default_sub_days','number'],['auto_fields_count','number'],['run_time_cloud','time']];
+async function loadSettings(){const s=await call('/api/settings');msg('set-msg','');
+  $('set-form').innerHTML=SET.map(([k,ty])=>`<div><label>${esc(t('set_'+k))}</label><input type="${ty}" id="set-${k}" value="${esc(s[k])}" ${ty==='number'?'min="0"':''}></div>`).join('');}
+$('set-save').onclick=async()=>{const b={};SET.forEach(([k])=>b[k]=$('set-'+k).value);try{await call('/api/settings',{method:'PUT',body:b});msg('set-msg',t('saved'),true)}catch(e){msg('set-msg',e.message)}};
+
+async function loadKpis(){const o=await call('/api/overview');const pct=o.applicationsToday?Math.round(100*o.autoToday/o.applicationsToday)+'%':'—';
   $('kpis').innerHTML=[[t('subs'),o.subscribers],[t('activeSubs'),o.active],[t('appsToday'),o.applicationsToday],[t('autoPct'),pct],[t('lastRun'),o.lastRun?o.lastRun.started_at.slice(0,16)+' · '+o.lastRun.place:t('never')]]
-   .map(([k,v])=>`<div class="kpi"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('');
-  $('c-staff').classList.toggle('hidden',me.role!=='owner');if(me.role==='owner')loadStaff();}
+   .map(([k,v])=>`<div class="kpi"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('');}
 
 async function boot(){applyLang();
   if(location.hash.startsWith('#set-password=')){show('setpw');return}

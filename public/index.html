@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Sign in</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#16181d;--mute:#667085;--line:#e4e7ec;--acc:#2f5bea;--ok:#12805c;--bad:#c4320a}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eceff4;--mute:#98a2b3;--line:#2a2f38;--acc:#6d8cff;--ok:#3ccf91;--bad:#ff7a59}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+.narrow{max-width:400px;margin:8vh auto}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:0 0 12px}
+label{display:block;font-size:13px;color:var(--mute);margin:12px 0 4px}
+input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font:inherit}
+button{padding:10px 16px;border:0;border-radius:8px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.sm{padding:5px 10px;font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.sp{flex:1}
+.msg{margin-top:12px;font-size:14px;color:var(--bad);min-height:1em}.msg.ok{color:var(--ok)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi b{display:block;font-size:26px}.kpi span{color:var(--mute);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:start}th{color:var(--mute);font-weight:500}
+.pill{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
+.link{word-break:break-all;background:var(--bg);padding:8px;border-radius:8px;font-size:13px;margin-top:8px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row" style="justify-content:flex-end"><button class="ghost sm" id="langBtn">العربية</button></div>
+
+  <!-- setup -->
+  <div id="v-setup" class="card narrow hidden">
+    <h1 data-t="setupTitle"></h1><p style="color:var(--mute)" data-t="setupHint"></p>
+    <label data-t="setupCode"></label><input id="s-code" type="password" autocomplete="off">
+    <label data-t="name"></label><input id="s-name">
+    <label data-t="email"></label><input id="s-email" type="email">
+    <label data-t="password"></label><input id="s-pw" type="password" autocomplete="new-password">
+    <div class="row" style="margin-top:16px"><button id="s-go" data-t="create"></button></div>
+    <div class="msg" id="s-msg"></div>
+  </div>
+
+  <!-- login -->
+  <div id="v-login" class="card narrow hidden">
+    <h1 data-t="signIn"></h1>
+    <label data-t="email"></label><input id="l-email" type="email" autocomplete="username">
+    <label data-t="password"></label><input id="l-pw" type="password" autocomplete="current-password">
+    <div class="row" style="margin-top:16px"><button id="l-go" data-t="signIn"></button></div>
+    <div class="msg" id="l-msg"></div>
+  </div>
+
+  <!-- set password (invite / reset link) -->
+  <div id="v-setpw" class="card narrow hidden">
+    <h1 data-t="setPw"></h1>
+    <label data-t="newPw"></label><input id="p-pw" type="password" autocomplete="new-password">
+    <label data-t="confirmPw"></label><input id="p-pw2" type="password" autocomplete="new-password">
+    <div class="row" style="margin-top:16px"><button id="p-go" data-t="save"></button></div>
+    <div class="msg" id="p-msg"></div>
+  </div>
+
+  <!-- home -->
+  <div id="v-home" class="hidden">
+    <div class="row" style="margin-bottom:16px"><h1>Job Hunter Platform</h1><span class="sp"></span>
+      <span id="who" style="color:var(--mute);font-size:14px"></span><button class="ghost sm" id="out" data-t="signOut"></button></div>
+    <div class="kpis card" id="kpis"></div>
+    <div class="card" id="c-staff">
+      <h2 data-t="admins"></h2>
+      <table><thead><tr><th data-t="name"></th><th data-t="email"></th><th data-t="role"></th><th data-t="status"></th><th></th></tr></thead><tbody id="staff"></tbody></table>
+      <h2 style="margin-top:20px" data-t="addAdmin"></h2>
+      <div class="row"><input id="a-name" style="max-width:220px" data-ph="name"><input id="a-email" type="email" style="max-width:260px" data-ph="email"><button id="a-go" data-t="add"></button></div>
+      <div class="msg" id="a-msg"></div>
+    </div>
+  </div>
+</div>
+<script>
+const T={en:{setupTitle:"First-time setup",setupHint:"Create the owner account. Needs the setup code saved in the repository secrets.",setupCode:"Setup code",name:"Name",email:"Email",password:"Password (10+ characters)",create:"Create owner",signIn:"Sign in",setPw:"Set your password",newPw:"New password (10+ characters)",confirmPw:"Confirm password",save:"Save",signOut:"Sign out",admins:"Team",addAdmin:"Add admin",add:"Add",role:"Role",status:"Status",active:"Active",disabled:"Disabled",noPw:"Invite pending",disable:"Disable",enable:"Enable",reset:"Reset link",subs:"Subscribers",activeSubs:"Active subscriptions",appsToday:"Applications today",autoPct:"Auto-applied today",lastRun:"Last run",never:"Never",mismatch:"Passwords do not match",pwDone:"Password saved. You can sign in now.",linkNote:"Send this one-time link to the person (valid 48 hours):",owner:"Owner",admin:"Admin"},
+ar:{setupTitle:"الإعداد لأول مرة",setupHint:"إنشاء حساب المالك. محتاج كود الإعداد المحفوظ في أسرار الريبو.",setupCode:"كود الإعداد",name:"الاسم",email:"الإيميل",password:"كلمة السر (10 حروف أو أكتر)",create:"إنشاء المالك",signIn:"تسجيل الدخول",setPw:"تعيين كلمة السر",newPw:"كلمة سر جديدة (10 حروف أو أكتر)",confirmPw:"تأكيد كلمة السر",save:"حفظ",signOut:"خروج",admins:"الفريق",addAdmin:"إضافة أدمن",add:"إضافة",role:"الدور",status:"الحالة",active:"نشط",disabled:"موقوف",noPw:"دعوة لسه ماتفعّلتش",disable:"إيقاف",enable:"تفعيل",reset:"لينك Reset",subs:"المشتركين",activeSubs:"اشتراكات سارية",appsToday:"تقديمات النهارده",autoPct:"أوتوماتيك النهارده",lastRun:"آخر تشغيل",never:"لسه",mismatch:"كلمتين السر مش زي بعض",pwDone:"اتحفظت. تقدر تدخل دلوقتي.",linkNote:"ابعت اللينك ده للشخص (صالح 48 ساعة، مرة واحدة):",owner:"مالك",admin:"أدمن"}};
+let lang=(()=>{try{return localStorage.getItem('lang')||'en'}catch{return'en'}})();
+const $=id=>document.getElementById(id), t=k=>T[lang][k]||k;
+function applyLang(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));
+  document.querySelectorAll('[data-ph]').forEach(e=>e.placeholder=t(e.dataset.ph));
+  $('langBtn').textContent=lang==='ar'?'English':'العربية';}
+$('langBtn').onclick=()=>{lang=lang==='ar'?'en':'ar';try{localStorage.setItem('lang',lang)}catch{}applyLang();if(!$('v-home').classList.contains('hidden'))home();};
+async function call(path,opt={}){const r=await fetch(path,{method:opt.method||'GET',headers:{'content-type':'application/json'},body:opt.body?JSON.stringify(opt.body):undefined,credentials:'same-origin'});
+  let d={};try{d=await r.json()}catch{}if(!r.ok)throw Object.assign(new Error(d.error||r.status),{status:r.status});return d;}
+function show(v){['setup','login','setpw','home'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));document.title=v==='home'?'Job Hunter Platform':'Sign in';}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function msg(id,text,ok){$(id).textContent=text;$(id).classList.toggle('ok',!!ok);}
+
+$('s-go').onclick=async()=>{try{await call('/api/setup',{method:'POST',body:{code:$('s-code').value,name:$('s-name').value,email:$('s-email').value,password:$('s-pw').value}});boot()}catch(e){msg('s-msg',e.message)}};
+$('l-go').onclick=async()=>{try{await call('/api/login',{method:'POST',body:{email:$('l-email').value,password:$('l-pw').value}});boot()}catch(e){msg('l-msg',e.message)}};
+$('l-pw').onkeydown=e=>{if(e.key==='Enter')$('l-go').click()};
+$('out').onclick=async()=>{await call('/api/logout',{method:'POST'}).catch(()=>{});boot()};
+$('p-go').onclick=async()=>{if($('p-pw').value!==$('p-pw2').value)return msg('p-msg',t('mismatch'));
+  try{await call('/api/set-password',{method:'POST',body:{token:location.hash.split('=')[1],password:$('p-pw').value}});history.replaceState(null,'',location.pathname);msg('p-msg',t('pwDone'),true);setTimeout(boot,1500)}catch(e){msg('p-msg',e.message)}};
+$('a-go').onclick=async()=>{try{const d=await call('/api/staff',{method:'POST',body:{name:$('a-name').value,email:$('a-email').value}});
+  $('a-msg').innerHTML=esc(t('linkNote'))+'<div class="link">'+esc(d.link)+'</div>';$('a-msg').classList.add('ok');$('a-name').value=$('a-email').value='';loadStaff()}catch(e){msg('a-msg',e.message)}};
+
+async function loadStaff(){const rows=await call('/api/staff');
+  $('staff').innerHTML=rows.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.email)}</td><td>${t(u.role)}</td>
+   <td><span class="pill">${!u.has_password?t('noPw'):u.active?t('active'):t('disabled')}</span></td>
+   <td>${u.role==='owner'?'':`<button class="ghost sm" data-a="toggle" data-id="${u.id}">${u.active?t('disable'):t('enable')}</button> <button class="ghost sm" data-a="reset" data-id="${u.id}">${t('reset')}</button>`}</td></tr>`).join('');
+  $('staff').querySelectorAll('button').forEach(b=>b.onclick=async()=>{try{const d=await call(`/api/staff/${b.dataset.id}/${b.dataset.a}`,{method:'POST'});
+    if(d.link){$('a-msg').innerHTML=esc(t('linkNote'))+'<div class="link">'+esc(d.link)+'</div>';$('a-msg').classList.add('ok')}loadStaff()}catch(e){msg('a-msg',e.message)}});}
+
+async function home(){show('home');const me=await call('/api/me');$('who').textContent=me.name+' · '+t(me.role);
+  const o=await call('/api/overview');const pct=o.applicationsToday?Math.round(100*o.autoToday/o.applicationsToday)+'%':'—';
+  $('kpis').innerHTML=[[t('subs'),o.subscribers],[t('activeSubs'),o.active],[t('appsToday'),o.applicationsToday],[t('autoPct'),pct],[t('lastRun'),o.lastRun?o.lastRun.started_at.slice(0,16)+' · '+o.lastRun.place:t('never')]]
+   .map(([k,v])=>`<div class="kpi"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('');
+  $('c-staff').classList.toggle('hidden',me.role!=='owner');if(me.role==='owner')loadStaff();}
+
+async function boot(){applyLang();
+  if(location.hash.startsWith('#set-password=')){show('setpw');return}
+  try{await call('/api/me');return home()}catch{}
+  try{const s=await call('/api/setup');show(s.needed?'setup':'login')}catch{show('login')}}
+boot();
+</script>
+</body>
+</html>

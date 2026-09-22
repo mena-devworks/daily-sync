@@ -38,7 +38,7 @@ jobs:
         run: |
           API=https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain
           CUR=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" $API | jq -r '.result.subdomain // empty')
-          if [ -z "$CUR" ]; then
+          if [ "$CUR" != "mena-devworks" ]; then
             curl -s -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" -d '{"subdomain":"mena-devworks"}' $API | jq -r '.success, (.errors[]?.message)'
           else echo "subdomain: $CUR"; fi
       - name: Deploy worker

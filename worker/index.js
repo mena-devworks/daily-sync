@@ -1,4 +1,4 @@
-// API worker. Static UI is served from /public via the ASSETS binding.
+// API worker. Deployed as dist/_worker.js on Cloudflare Pages; static UI comes from /public via ASSETS.
 const ITER = 50000;               // PBKDF2 iterations (kept within Workers CPU limits)
 const SESSION_DAYS = 7;
 const LINK_HOURS = 48;
@@ -226,10 +226,22 @@ async function api(req, env, url) {
   return err('not found', 404);
 }
 
+// Housekeeping: expired sessions / links / old login failures
+async function cleanup(env) {
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(now),
+    env.DB.prepare('DELETE FROM tokens WHERE expires_at < ?').bind(now),
+    env.DB.prepare("DELETE FROM login_fails WHERE at < datetime('now','-1 day')"),
+  ]);
+}
+
+// Runs as Cloudflare Pages advanced-mode worker (dist/_worker.js)
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) {
+      if (Math.random() < 0.02) ctx.waitUntil(cleanup(env).catch(() => {}));
       try {
         return await api(req, env, url);
       } catch (e) {
@@ -243,15 +255,5 @@ export default {
     h.set('x-frame-options', 'DENY');
     h.set('referrer-policy', 'no-referrer');
     return new Response(res.body, { status: res.status, headers: h });
-  },
-
-  // Housekeeping: expired sessions / links / old login failures
-  async scheduled(_ev, env) {
-    const now = new Date().toISOString();
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(now),
-      env.DB.prepare('DELETE FROM tokens WHERE expires_at < ?').bind(now),
-      env.DB.prepare("DELETE FROM login_fails WHERE at < datetime('now','-1 day')"),
-    ]);
   },
 };

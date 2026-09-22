@@ -128,8 +128,6 @@ function cleanSub(b) {
   out.email = String(b.email).trim().toLowerCase();
   out.current_country = ['AE', 'EG', 'SA', 'OTHER'].includes(b.current_country) ? b.current_country : null;
   out.current_city = b.current_city ? String(b.current_city).trim().slice(0, 80) : null;
-  out.lang = b.lang === 'ar' ? 'ar' : 'en';
-  out.send_mode = b.send_mode === 'app_password' ? 'app_password' : 'central';
   if (b.sub_end !== undefined && !validDate(b.sub_end)) return { error: 'invalid subscription end date' };
   out.sub_end = b.sub_end;
   out.cities = [];
@@ -141,11 +139,6 @@ function cleanSub(b) {
   for (const f of Array.isArray(b.fields) ? b.fields : []) {
     if (!FIELDS.includes(f.field)) return { error: 'unknown field: ' + f.field };
     out.fields.push([f.field, f.enabled ? 1 : 0]);
-  }
-  if (b.app_password) {
-    const ap = String(b.app_password).replace(/\s+/g, '');
-    if (ap.length < 8 || ap.length > 64) return { error: 'app password looks wrong' };
-    out.app_password = ap;
   }
   out.clear_app_password = !!b.clear_app_password;
   return out;
@@ -180,14 +173,12 @@ async function subRoutes(req, env, url, p, m, me) {
   if (p === '/api/subscribers' && m === 'POST') {
     const s = cleanSub(await body(req));
     if (s.error) return err(s.error);
-    if (s.send_mode === 'app_password' && !s.app_password) return err('app password required for this sending mode');
     const start = todayStr();
     const end = s.sub_end || addDays(start, Number(await getSetting(env, 'default_sub_days')) || 30);
-    const ap = s.app_password ? await encryptSecret(env, s.app_password) : null;
     const ins = await env.DB.prepare(
       `INSERT INTO subscribers (slug, name, email, current_country, current_city, send_mode, app_password_enc, sub_start, sub_end, lang, created_by)
        VALUES (?,?,?,?,?,?,?,?,?,?,?)`
-    ).bind(randomToken(9), s.name, s.email, s.current_country, s.current_city, s.send_mode, ap, start, end, s.lang, me.id).run();
+    ).bind(randomToken(9), s.name, s.email, s.current_country, s.current_city, 'central', null, start, end, 'en', me.id).run();
     const id = ins.meta.last_row_id;
     await saveSubLists(env, id, s);
     await audit(env, me.id, 'sub_add', { id, email: s.email });
@@ -214,13 +205,12 @@ async function subRoutes(req, env, url, p, m, me) {
   if (!act && m === 'PUT') {
     const s = cleanSub(await body(req));
     if (s.error) return err(s.error);
-    let ap = sub.app_password_enc;
-    if (s.clear_app_password) ap = null;
-    if (s.app_password) ap = await encryptSecret(env, s.app_password);
-    if (s.send_mode === 'app_password' && !ap) return err('app password required for this sending mode');
+    // The App Password is added by the subscriber from their own dashboard (phase 4); staff can only remove it
+    const ap = s.clear_app_password ? null : sub.app_password_enc;
+    const mode = ap ? sub.send_mode : 'central';
     await env.DB.prepare(
       `UPDATE subscribers SET name=?, email=?, current_country=?, current_city=?, send_mode=?, app_password_enc=?, sub_end=?, lang=?, updated_at=datetime('now') WHERE id=?`
-    ).bind(s.name, s.email, s.current_country, s.current_city, s.send_mode, ap, s.sub_end || sub.sub_end, s.lang, id).run();
+    ).bind(s.name, s.email, s.current_country, s.current_city, mode, ap, s.sub_end || sub.sub_end, sub.lang, id).run();
     await saveSubLists(env, id, s);
     await audit(env, me.id, 'sub_edit', { id });
     return json({ ok: true });

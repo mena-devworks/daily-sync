@@ -1,0 +1,57 @@
+name: engine
+# Only schedule + manual triggers (public repo: never run on pull requests).
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # gate checks run_time_cloud (Cairo) and the dashboard's "Run now"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Test only (send nothing)'
+        type: boolean
+        default: true
+      subscriber:
+        description: 'Only this subscriber id (optional)'
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: engine
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Is a run due?
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; else python3 engine/due.py; fi
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
+        with: { python-version: '3.11', cache: pip, cache-dependency-path: engine/requirements.txt }
+      - name: Install
+        if: steps.gate.outputs.run == 'true'
+        run: pip install -r engine/requirements.txt
+      - name: Run engine
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CENTRAL_EMAIL: ${{ secrets.CENTRAL_EMAIL }}
+          CENTRAL_APP_PASSWORD: ${{ secrets.CENTRAL_APP_PASSWORD }}
+          SETUP_CODE: ${{ secrets.SETUP_CODE }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ -n "${{ inputs.subscriber }}" ]; then ARGS="$ARGS --subscriber ${{ inputs.subscriber }}"; fi
+          python -m engine.main $ARGS
+      - name: Upload tailored CVs to R2
+        if: always() && steps.gate.outputs.run == 'true' && hashFiles('out/tailored/**') != ''
+        run: |
+          if ! npx --yes wrangler@4 r2 bucket list 2>/dev/null | grep -q daily-sync-files; then echo "::warning::R2 not enabled - tailored PDFs not uploaded"; exit 0; fi
+          cd out && find tailored -name '*.pdf' | while read f; do
+            npx --yes wrangler@4 r2 object put "daily-sync-files/$f" --file "$f" --content-type application/pdf --remote >/dev/null && echo "uploaded $f"
+          done

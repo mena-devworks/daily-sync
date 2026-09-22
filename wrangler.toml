@@ -1,15 +1,6 @@
 name = "daily-sync"
-main = "worker/index.js"
+pages_build_output_dir = "dist"
 compatibility_date = "2026-09-01"
-workers_dev = true
-
-[assets]
-directory = "public"
-binding = "ASSETS"
-run_worker_first = ["/api/*"]
-
-[triggers]
-crons = ["17 3 * * *"]
 
 [[d1_databases]]
 binding = "DB"

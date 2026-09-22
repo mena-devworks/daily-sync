@@ -94,7 +94,7 @@ const FIELDS = ['Accounting & Finance', 'Banking', 'Sales', 'Marketing', 'Custom
   'Procurement', 'Real Estate', 'Graphic Design & Creative', 'Legal', 'Security', 'Driving & Delivery'];
 const SETTING_DEFAULTS = {
   daily_apply_limit: '20', central_daily_limit: '5', min_match_score: '60', email_cooldown_days: '14',
-  run_time_cloud: '07:00', default_sub_days: '30', auto_fields_count: '5',
+  run_time_cloud: '07:00', default_sub_days: '30', auto_fields_count: '5', engine_live: '0',
 };
 const CV_TYPES = { pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', txt: 'text/plain' };
 const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(Date.parse(d));
@@ -407,6 +407,25 @@ async function api(req, env, url) {
       env.DB.prepare('SELECT place, started_at, finished_at, status FROM runs ORDER BY id DESC LIMIT 1').first(),
     ]);
     return json({ subscribers: subs.n, active: active.n, applicationsToday: appsToday.n, autoToday: autoToday.n, lastRun, storage: !!env.FILES });
+  }
+
+  // phase 3: engine runs. The GitHub workflow checks every 15 min and starts when run_requested is newer than the last run.
+  if (p === '/api/run-now' && m === 'POST') {
+    const busy = await env.DB.prepare("SELECT id FROM runs WHERE status = 'running' AND started_at > datetime('now','-3 hours') LIMIT 1").first();
+    if (busy) return err('a run is already in progress', 409);
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('run_requested', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(now).run();
+    await audit(env, me.id, 'run_now', now);
+    return json({ ok: true, requested_at: now });
+  }
+  if (p === '/api/runs' && m === 'GET') {
+    const r = await env.DB.prepare('SELECT id, place, started_at, finished_at, status, stats_json FROM runs ORDER BY id DESC LIMIT 10').all();
+    const req = await env.DB.prepare("SELECT value FROM settings WHERE key = 'run_requested'").first();
+    return json({ requested: req ? req.value : null, runs: r.results.map((x) => {
+      let st = {}; try { st = JSON.parse(x.stats_json || '{}'); } catch {}
+      if (!owner) delete st.preview;
+      return { ...x, stats_json: undefined, stats: st };
+    }) });
   }
 
   const sr = await subRoutes(req, env, url, p, m, me);

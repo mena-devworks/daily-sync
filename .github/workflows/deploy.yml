@@ -40,10 +40,10 @@ jobs:
       - name: Ensure Pages project
         run: |
           $W pages project list 2>/dev/null | grep -q ' daily-sync ' || $W pages project create daily-sync --production-branch main
-      - name: Deploy
-        run: $W pages deploy --branch main --commit-dirty=true
       - name: Push secrets
         env:
           SETUP_CODE: ${{ secrets.SETUP_CODE }}
         run: |
           if [ -n "$SETUP_CODE" ]; then printf '%s' "$SETUP_CODE" | $W pages secret put SETUP_CODE --project-name daily-sync >/dev/null && echo "SETUP_CODE set"; fi
+      - name: Deploy
+        run: $W pages deploy --branch main --commit-dirty=true

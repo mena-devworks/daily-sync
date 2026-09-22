@@ -78,6 +78,223 @@ async function oneTimeLink(env, origin, kind, userId, purpose) {
 const audit = (env, staffId, action, detail) =>
   env.DB.prepare('INSERT INTO audit (staff_id, action, detail) VALUES (?,?,?)').bind(staffId, action, detail ? JSON.stringify(detail) : null).run();
 
+// ---------------- phase 2: catalog, crypto, subscribers ----------------
+const CITIES = {
+  AE: ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman', 'Umm Al Quwain', 'Ras Al Khaimah', 'Fujairah'],
+  EG: ['Cairo', 'Giza', 'Alexandria', 'Qalyubia', 'Sharqia', 'Dakahlia', 'Gharbia', 'Monufia', 'Beheira', 'Kafr El Sheikh',
+    'Damietta', 'Port Said', 'Ismailia', 'Suez', 'North Sinai', 'South Sinai', 'Red Sea', 'Matrouh', 'New Valley', 'Faiyum',
+    'Beni Suef', 'Minya', 'Asyut', 'Sohag', 'Qena', 'Luxor', 'Aswan'],
+  SA: ['Riyadh', 'Jeddah', 'Mecca', 'Medina', 'Dammam', 'Khobar', 'Dhahran', 'Jubail', 'Al Ahsa', 'Taif', 'Tabuk', 'Abha',
+    'Khamis Mushait', 'Buraidah', 'Hail', 'Yanbu', 'Jazan', 'Najran'],
+};
+const FIELDS = ['Accounting & Finance', 'Banking', 'Sales', 'Marketing', 'Customer Service', 'Administration & Secretarial',
+  'Reception & Front Office', 'Human Resources', 'IT & Software', 'Data & Analytics', 'Civil Engineering', 'Mechanical Engineering',
+  'Electrical Engineering', 'Construction & Site Management', 'Project Management', 'Healthcare & Nursing', 'Pharmacy',
+  'Education & Teaching', 'Hospitality & Hotels', 'Tourism & Travel', 'Food & Beverage', 'Retail', 'Logistics & Supply Chain',
+  'Procurement', 'Real Estate', 'Graphic Design & Creative', 'Legal', 'Security', 'Driving & Delivery'];
+const SETTING_DEFAULTS = {
+  daily_apply_limit: '20', central_daily_limit: '5', min_match_score: '60', email_cooldown_days: '14',
+  run_time_cloud: '07:00', default_sub_days: '30', auto_fields_count: '5',
+};
+const CV_TYPES = { pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', txt: 'text/plain' };
+const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(Date.parse(d));
+const addDays = (d, n) => new Date(Date.parse(d) + n * 864e5).toISOString().slice(0, 10);
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+async function getSetting(env, key) {
+  const r = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
+  return r ? r.value : SETTING_DEFAULTS[key];
+}
+
+// App passwords: AES-GCM, key derived (HKDF) from SETUP_CODE. Format "v1:<iv b64>:<ciphertext b64>".
+// The engine (phase 3) decrypts with the same derivation. Changing SETUP_CODE means re-entering app passwords.
+async function appKey(env) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(env.SETUP_CODE), 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: enc.encode('job-hunter/app-password'), info: enc.encode('v1') },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function encryptSecret(env, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await appKey(env), enc.encode(text));
+  return `v1:${b64(iv)}:${b64(ct)}`;
+}
+
+// Validate + normalise a subscriber payload (shared by create and update)
+function cleanSub(b) {
+  const out = {};
+  if (!b.name || String(b.name).trim().length > 120) return { error: 'name required' };
+  if (!validEmail(String(b.email || '').trim())) return { error: 'valid email required' };
+  out.name = String(b.name).trim();
+  out.email = String(b.email).trim().toLowerCase();
+  out.current_country = ['AE', 'EG', 'SA', 'OTHER'].includes(b.current_country) ? b.current_country : null;
+  out.current_city = b.current_city ? String(b.current_city).trim().slice(0, 80) : null;
+  out.lang = b.lang === 'ar' ? 'ar' : 'en';
+  out.send_mode = b.send_mode === 'app_password' ? 'app_password' : 'central';
+  if (b.sub_end !== undefined && !validDate(b.sub_end)) return { error: 'invalid subscription end date' };
+  out.sub_end = b.sub_end;
+  out.cities = [];
+  for (const c of Array.isArray(b.cities) ? b.cities : []) {
+    if (!CITIES[c.country] || !CITIES[c.country].includes(c.city)) return { error: 'unknown city: ' + c.city };
+    out.cities.push([c.country, c.city, c.enabled ? 1 : 0]);
+  }
+  out.fields = [];
+  for (const f of Array.isArray(b.fields) ? b.fields : []) {
+    if (!FIELDS.includes(f.field)) return { error: 'unknown field: ' + f.field };
+    out.fields.push([f.field, f.enabled ? 1 : 0]);
+  }
+  if (b.app_password) {
+    const ap = String(b.app_password).replace(/\s+/g, '');
+    if (ap.length < 8 || ap.length > 64) return { error: 'app password looks wrong' };
+    out.app_password = ap;
+  }
+  out.clear_app_password = !!b.clear_app_password;
+  return out;
+}
+
+async function saveSubLists(env, id, s) {
+  const st = [
+    env.DB.prepare('DELETE FROM subscriber_cities WHERE subscriber_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM subscriber_fields WHERE subscriber_id = ?').bind(id),
+    ...s.cities.map(([co, ci, en]) => env.DB.prepare('INSERT INTO subscriber_cities (subscriber_id, country, city, enabled) VALUES (?,?,?,?)').bind(id, co, ci, en)),
+    ...s.fields.map(([f, en]) => env.DB.prepare('INSERT INTO subscriber_fields (subscriber_id, field, enabled) VALUES (?,?,?)').bind(id, f, en)),
+  ];
+  await env.DB.batch(st);
+}
+
+async function subRoutes(req, env, url, p, m, me) {
+  if (p === '/api/catalog') return json({ cities: CITIES, fields: FIELDS, settingDefaults: SETTING_DEFAULTS, storage: !!env.FILES });
+
+  if (p === '/api/subscribers' && m === 'GET') {
+    const r = await env.DB.prepare(
+      `SELECT s.id, s.name, s.email, s.sub_start, s.sub_end, s.locked, s.send_mode,
+        (SELECT COUNT(*) FROM subscriber_cities c WHERE c.subscriber_id = s.id AND c.enabled = 1) cities,
+        (SELECT COUNT(*) FROM subscriber_fields f WHERE f.subscriber_id = s.id AND f.enabled = 1) fields,
+        (SELECT COUNT(*) FROM applications a WHERE a.subscriber_id = s.id AND substr(a.created_at,1,10) = ?1) apps_today,
+        (SELECT COUNT(*) FROM applications a WHERE a.subscriber_id = s.id AND a.method = 'email' AND substr(a.created_at,1,10) = ?1) auto_today,
+        EXISTS(SELECT 1 FROM cv_files v WHERE v.subscriber_id = s.id) has_cv
+       FROM subscribers s ORDER BY s.id DESC`
+    ).bind(todayStr()).all();
+    return json(r.results);
+  }
+
+  if (p === '/api/subscribers' && m === 'POST') {
+    const s = cleanSub(await body(req));
+    if (s.error) return err(s.error);
+    if (s.send_mode === 'app_password' && !s.app_password) return err('app password required for this sending mode');
+    const start = todayStr();
+    const end = s.sub_end || addDays(start, Number(await getSetting(env, 'default_sub_days')) || 30);
+    const ap = s.app_password ? await encryptSecret(env, s.app_password) : null;
+    const ins = await env.DB.prepare(
+      `INSERT INTO subscribers (slug, name, email, current_country, current_city, send_mode, app_password_enc, sub_start, sub_end, lang, created_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(randomToken(9), s.name, s.email, s.current_country, s.current_city, s.send_mode, ap, start, end, s.lang, me.id).run();
+    const id = ins.meta.last_row_id;
+    await saveSubLists(env, id, s);
+    await audit(env, me.id, 'sub_add', { id, email: s.email });
+    return json({ ok: true, id });
+  }
+
+  const mm = p.match(/^\/api\/subscribers\/(\d+)(?:\/(lock|unlock|renew|cv))?$/);
+  if (!mm) return null;
+  const id = Number(mm[1]);
+  const sub = await env.DB.prepare('SELECT * FROM subscribers WHERE id = ?').bind(id).first();
+  if (!sub) return err('not found', 404);
+  const act = mm[2];
+
+  if (!act && m === 'GET') {
+    const [c, f, cv] = await Promise.all([
+      env.DB.prepare('SELECT country, city, enabled FROM subscriber_cities WHERE subscriber_id = ?').bind(id).all(),
+      env.DB.prepare('SELECT field, enabled, auto_picked FROM subscriber_fields WHERE subscriber_id = ?').bind(id).all(),
+      env.DB.prepare('SELECT name, size, store, uploaded_at FROM cv_files WHERE subscriber_id = ?').bind(id).first(),
+    ]);
+    const { app_password_enc, pw_hash, pw_salt, cv_text, ...safe } = sub;
+    return json({ ...safe, has_app_password: !!app_password_enc, has_cv_text: !!cv_text, cities: c.results, fields: f.results, cv });
+  }
+
+  if (!act && m === 'PUT') {
+    const s = cleanSub(await body(req));
+    if (s.error) return err(s.error);
+    let ap = sub.app_password_enc;
+    if (s.clear_app_password) ap = null;
+    if (s.app_password) ap = await encryptSecret(env, s.app_password);
+    if (s.send_mode === 'app_password' && !ap) return err('app password required for this sending mode');
+    await env.DB.prepare(
+      `UPDATE subscribers SET name=?, email=?, current_country=?, current_city=?, send_mode=?, app_password_enc=?, sub_end=?, lang=?, updated_at=datetime('now') WHERE id=?`
+    ).bind(s.name, s.email, s.current_country, s.current_city, s.send_mode, ap, s.sub_end || sub.sub_end, s.lang, id).run();
+    await saveSubLists(env, id, s);
+    await audit(env, me.id, 'sub_edit', { id });
+    return json({ ok: true });
+  }
+
+  if (!act && m === 'DELETE') {
+    if (me.role !== 'owner') return err('owner only', 403);
+    if (env.FILES) await env.FILES.delete(`cv/${id}`).catch(() => {});
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM subscriber_cities WHERE subscriber_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM subscriber_fields WHERE subscriber_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM cv_files WHERE subscriber_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM applications WHERE subscriber_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM tailored_cvs WHERE subscriber_id = ?').bind(id),
+      env.DB.prepare("DELETE FROM sessions WHERE kind='sub' AND user_id = ?").bind(id),
+      env.DB.prepare('DELETE FROM subscribers WHERE id = ?').bind(id),
+    ]);
+    await audit(env, me.id, 'sub_delete', { id, email: sub.email });
+    return json({ ok: true });
+  }
+
+  if ((act === 'lock' || act === 'unlock') && m === 'POST') {
+    await env.DB.prepare("UPDATE subscribers SET locked = ?, updated_at = datetime('now') WHERE id = ?").bind(act === 'lock' ? 1 : 0, id).run();
+    await audit(env, me.id, 'sub_' + act, { id });
+    return json({ ok: true });
+  }
+
+  if (act === 'renew' && m === 'POST') {
+    const from = sub.sub_end > todayStr() ? sub.sub_end : todayStr();
+    const end = addDays(from, Number(await getSetting(env, 'default_sub_days')) || 30);
+    await env.DB.prepare("UPDATE subscribers SET sub_end = ?, updated_at = datetime('now') WHERE id = ?").bind(end, id).run();
+    await audit(env, me.id, 'sub_renew', { id, sub_end: end });
+    return json({ ok: true, sub_end: end });
+  }
+
+  if (act === 'cv' && m === 'POST') {
+    let form;
+    try { form = await req.formData(); } catch { return err('upload a file'); }
+    const file = form.get('file');
+    if (!file || typeof file === 'string') return err('upload a file');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!CV_TYPES[ext]) return err('CV must be PDF, DOCX or TXT');
+    const max = env.FILES ? 5e6 : 7e5;
+    if (file.size > max) return err(`file too large (max ${Math.round(max / 1e3)} KB)`);
+    const buf = await file.arrayBuffer();
+    const hash = hex(await crypto.subtle.digest('SHA-256', buf));
+    const text = String(form.get('text') || '').slice(0, 200000);
+    let store = 'd1', data = null;
+    if (env.FILES) { await env.FILES.put(`cv/${id}`, buf, { httpMetadata: { contentType: CV_TYPES[ext] } }); store = 'r2'; }
+    else { let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode(...u.subarray(i, i + 8192)); data = btoa(s); }
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO cv_files (subscriber_id, name, mime, size, store, data) VALUES (?,?,?,?,?,?)
+        ON CONFLICT(subscriber_id) DO UPDATE SET name=excluded.name, mime=excluded.mime, size=excluded.size, store=excluded.store, data=excluded.data, uploaded_at=datetime('now')`)
+        .bind(id, file.name.slice(0, 150), CV_TYPES[ext], file.size, store, data),
+      env.DB.prepare("UPDATE subscribers SET cv_key = ?, cv_text = ?, cv_hash = ?, updated_at = datetime('now') WHERE id = ?")
+        .bind(`${store}:cv/${id}`, text || null, hash, id),
+    ]);
+    await audit(env, me.id, 'sub_cv', { id, size: file.size, store });
+    return json({ ok: true, store, textChars: text.length });
+  }
+
+  if (act === 'cv' && m === 'GET') {
+    const f = await env.DB.prepare('SELECT * FROM cv_files WHERE subscriber_id = ?').bind(id).first();
+    if (!f) return err('no CV', 404);
+    let bytes;
+    if (f.store === 'r2') { const o = env.FILES && await env.FILES.get(`cv/${id}`); if (!o) return err('file missing', 404); bytes = o.body; }
+    else bytes = Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0));
+    return new Response(bytes, { headers: { 'content-type': f.mime || 'application/octet-stream', 'cache-control': 'no-store',
+      'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(f.name)}` } });
+  }
+
+  return err('not found', 404);
+}
+
 // ---------------- routes ----------------
 async function api(req, env, url) {
   const p = url.pathname.replace(/\/+$/, '');
@@ -195,6 +412,9 @@ async function api(req, env, url) {
     return json({ subscribers: subs.n, active: active.n, applicationsToday: appsToday.n, autoToday: autoToday.n, lastRun, storage: !!env.FILES });
   }
 
+  const sr = await subRoutes(req, env, url, p, m, me);
+  if (sr) return sr;
+
   if (p === '/api/staff' && m === 'GET') {
     if (!owner) return err('owner only', 403);
     const r = await env.DB.prepare('SELECT id, email, name, role, active, created_at, pw_hash IS NOT NULL AS has_password FROM staff ORDER BY id').all();
@@ -234,13 +454,13 @@ async function api(req, env, url) {
   if (p === '/api/settings' && m === 'GET') {
     if (!owner) return err('owner only', 403);
     const r = await env.DB.prepare('SELECT key, value FROM settings').all();
-    return json(Object.fromEntries(r.results.map((x) => [x.key, x.value])));
+    return json({ ...SETTING_DEFAULTS, ...Object.fromEntries(r.results.map((x) => [x.key, x.value])) });
   }
 
   if (p === '/api/settings' && m === 'PUT') {
     if (!owner) return err('owner only', 403);
     const b = await body(req);
-    const stmts = Object.entries(b).filter(([k]) => /^[a-z0-9_.]{1,64}$/.test(k))
+    const stmts = Object.entries(b).filter(([k, v]) => k in SETTING_DEFAULTS && String(v).length <= 200)
       .map(([k, v]) => env.DB.prepare('INSERT INTO settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(k, String(v)));
     if (stmts.length) await env.DB.batch(stmts);
     await audit(env, me.id, 'settings_update', Object.keys(b));

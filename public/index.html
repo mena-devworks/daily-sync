@@ -2,102 +2,128 @@
 <html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>Sign in</title>
-<style>
-:root{--bg:#f5f6f8;--card:#fff;--ink:#16181d;--mute:#667085;--line:#e4e7ec;--acc:#2f5bea;--ok:#12805c;--bad:#c4320a}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eceff4;--mute:#98a2b3;--line:#2a2f38;--acc:#6d8cff;--ok:#3ccf91;--bad:#ff7a59}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}
-.wrap{max-width:1000px;margin:0 auto;padding:24px 16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
-.narrow{max-width:400px;margin:8vh auto}
-h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:0 0 12px}
-label{display:block;font-size:13px;color:var(--mute);margin:12px 0 4px}
-input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font:inherit}
-button{padding:10px 16px;border:0;border-radius:8px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
-button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.sm{padding:5px 10px;font-size:13px}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.sp{flex:1}
-.msg{margin-top:12px;font-size:14px;color:var(--bad);min-height:1em}.msg.ok{color:var(--ok)}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
-.kpi b{display:block;font-size:26px}.kpi span{color:var(--mute);font-size:13px}
-table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:start}th{color:var(--mute);font-weight:500}
-.pill{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
-.link{word-break:break-all;background:var(--bg);padding:8px;border-radius:8px;font-size:13px;margin-top:8px}
-.tabs{margin-bottom:16px}.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px}
-select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
-h3{font-size:15px;margin:20px 0 8px}.mute{color:var(--mute)}small{font-size:12px}a{color:var(--acc)}
-.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{display:inline-flex;align-items:center;gap:6px;margin:0;padding:5px 10px;border:1px solid var(--line);border-radius:99px;font-size:13px;color:var(--ink);cursor:pointer}
-.chip input,.opt input{width:auto;margin:0}.chip:has(input:checked){border-color:var(--acc);background:color-mix(in srgb,var(--acc) 14%,transparent)}
-.opt{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:14px;margin:6px 0}
-details{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:8px}summary{cursor:pointer;font-weight:500}
-.pill.active{color:var(--ok);border-color:var(--ok)}.pill.expired{color:var(--mute)}.pill.locked{color:var(--bad);border-color:var(--bad)}
-td.acts{white-space:nowrap}input[type=file]{padding:8px}button:disabled{opacity:.6}
-.hidden{display:none}
-</style>
+<meta name="theme-color" content="#070b24">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Job Hunter">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<div class="wrap">
-  <div class="row" style="justify-content:flex-end"><button class="ghost sm" id="langBtn">العربية</button></div>
-
-  <!-- setup -->
-  <div id="v-setup" class="card narrow hidden">
-    <h1 data-t="setupTitle"></h1><p style="color:var(--mute)" data-t="setupHint"></p>
-    <label data-t="setupCode"></label><input id="s-code" type="password" autocomplete="off">
-    <label data-t="name"></label><input id="s-name">
-    <label data-t="email"></label><input id="s-email" type="email">
-    <label data-t="password"></label><input id="s-pw" type="password" autocomplete="new-password">
-    <label data-t="confirmPw"></label><input id="s-pw2" type="password" autocomplete="new-password">
-    <div class="row" style="margin-top:16px"><button id="s-go" data-t="create"></button></div>
-    <div class="msg" id="s-msg"></div>
+<!-- ================= auth ================= -->
+<div class="auth" id="auth">
+  <div class="auth-art">
+    <svg class="radar" viewBox="0 0 400 400" fill="none" aria-hidden="true">
+      <defs><radialGradient id="rg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#21d4fd" stop-opacity=".35"/><stop offset="1" stop-color="#0075ff" stop-opacity="0"/></radialGradient>
+      <linearGradient id="sw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#21d4fd" stop-opacity=".7"/><stop offset="1" stop-color="#0075ff" stop-opacity="0"/></linearGradient></defs>
+      <circle cx="200" cy="200" r="190" fill="url(#rg)"/>
+      <g stroke="#6fb8ff" stroke-opacity=".35"><circle cx="200" cy="200" r="60"/><circle cx="200" cy="200" r="110"/><circle cx="200" cy="200" r="160"/><path d="M200 20v360M20 200h360"/></g>
+      <path d="M200 200 L200 40 A160 160 0 0 1 338 120 Z" fill="url(#sw)"/>
+      <g fill="#fff"><circle cx="270" cy="120" r="5"/><circle cx="130" cy="260" r="4" opacity=".7"/><circle cx="300" cy="250" r="6"/><circle cx="160" cy="150" r="3" opacity=".6"/></g>
+      <g transform="translate(168 172)"><rect width="64" height="48" y="10" rx="10" fill="#0075ff"/><rect x="20" width="24" height="16" rx="5" stroke="#fff" stroke-width="4" fill="none"/><rect y="26" width="64" height="5" fill="#21d4fd" opacity=".8"/></g>
+    </svg>
+    <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
+    <h2 style="margin-top:22px" data-t="artTitle"></h2><p data-t="artText"></p>
   </div>
+  <div class="auth-side" style="position:relative">
+    <div class="auth-top"><button class="ghost sm" id="langBtn">العربية</button></div>
 
-  <!-- login -->
-  <div id="v-login" class="card narrow hidden">
-    <h1 data-t="signIn"></h1>
-    <label data-t="email"></label><input id="l-email" type="email" autocomplete="username">
-    <label data-t="password"></label><input id="l-pw" type="password" autocomplete="current-password">
-    <div class="row" style="margin-top:16px"><button id="l-go" data-t="signIn"></button></div>
-    <div class="row" style="margin-top:8px"><button class="ghost sm" id="l-forgot" data-t="forgot"></button></div>
-    <div class="msg" id="l-msg"></div>
-  </div>
-
-  <!-- recover with setup code -->
-  <div id="v-recover" class="card narrow hidden">
-    <h1 data-t="recoverTitle"></h1><p style="color:var(--mute)" data-t="recoverHint"></p>
-    <label data-t="setupCode"></label><input id="r-code" type="password" autocomplete="off">
-    <label data-t="email"></label><input id="r-email" type="email" autocomplete="username">
-    <label data-t="newPw"></label><input id="r-pw" type="password" autocomplete="new-password">
-    <label data-t="confirmPw"></label><input id="r-pw2" type="password" autocomplete="new-password">
-    <div class="row" style="margin-top:16px"><button id="r-go" data-t="save"></button><button class="ghost" id="r-back" data-t="back"></button></div>
-    <div class="msg" id="r-msg"></div>
-  </div>
-
-  <!-- set password (invite / reset link) -->
-  <div id="v-setpw" class="card narrow hidden">
-    <h1 data-t="setPw"></h1>
-    <label data-t="newPw"></label><input id="p-pw" type="password" autocomplete="new-password">
-    <label data-t="confirmPw"></label><input id="p-pw2" type="password" autocomplete="new-password">
-    <div class="row" style="margin-top:16px"><button id="p-go" data-t="save"></button></div>
-    <div class="msg" id="p-msg"></div>
-  </div>
-
-  <!-- home -->
-  <div id="v-home" class="hidden">
-    <div class="row" style="margin-bottom:16px"><h1>Job Hunter Platform</h1><span class="sp"></span>
-      <span id="who" style="color:var(--mute);font-size:14px"></span><button class="ghost sm" id="out" data-t="signOut"></button></div>
-    <div class="row tabs" id="tabs"><button class="ghost sm" data-tab="overview" data-t="overview"></button><button class="ghost sm" data-tab="subs" data-t="subs"></button><button class="ghost sm own" data-tab="team" data-t="admins"></button><button class="ghost sm own" data-tab="settings" data-t="settings"></button></div>
-    <div class="kpis card" id="kpis" data-p="overview"></div>
-    <div class="card" id="runs-card" data-p="overview"><div class="row"><b data-t="runs"></b><button class="sm" id="run-now" data-t="runNow"></button><span id="run-msg"></span></div><div id="runs"></div></div>
-
-    <div class="card hidden" data-p="subs">
-      <div class="row"><h2 style="margin:0" data-t="subs"></h2><span class="sp"></span><input id="q" style="max-width:220px" data-ph="search"><button id="addSub" data-t="addSub"></button></div>
-      <div style="overflow-x:auto"><table style="margin-top:12px"><thead><tr><th data-t="name"></th><th data-t="status"></th><th data-t="subEnd"></th><th data-t="citiesFields"></th><th data-t="appsTodayShort"></th><th>CV</th><th></th></tr></thead><tbody id="subs"></tbody></table></div>
-      <div class="msg" id="s2-msg"></div>
+    <div id="v-setup" class="card hidden">
+      <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
+      <h1 data-t="setupTitle"></h1><p class="mute" data-t="setupHint"></p>
+      <label data-t="setupCode"></label><input id="s-code" type="password" autocomplete="off">
+      <label data-t="name"></label><input id="s-name">
+      <label data-t="email"></label><input id="s-email" type="email">
+      <label data-t="password"></label><input id="s-pw" type="password" autocomplete="new-password">
+      <label data-t="confirmPw"></label><input id="s-pw2" type="password" autocomplete="new-password">
+      <button id="s-go" style="width:100%;margin-top:20px" data-t="create"></button>
+      <div class="msg" id="s-msg"></div>
     </div>
 
-    <div class="card hidden" data-p="edit">
+    <div id="v-login" class="card hidden">
+      <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
+      <h1 data-t="welcome"></h1><p class="mute" style="margin:0" data-t="loginHint"></p>
+      <label data-t="email"></label><input id="l-email" type="email" autocomplete="username">
+      <label data-t="password"></label><input id="l-pw" type="password" autocomplete="current-password">
+      <button id="l-go" style="width:100%;margin-top:20px" data-t="signIn"></button>
+      <div class="row" style="margin-top:10px;justify-content:center"><button class="ghost sm" id="l-forgot" data-t="forgot"></button></div>
+      <div class="msg" id="l-msg"></div>
+    </div>
+
+    <div id="v-recover" class="card hidden">
+      <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
+      <h1 data-t="recoverTitle"></h1><p class="mute" data-t="recoverHint"></p>
+      <label data-t="setupCode"></label><input id="r-code" type="password" autocomplete="off">
+      <label data-t="email"></label><input id="r-email" type="email" autocomplete="username">
+      <label data-t="newPw"></label><input id="r-pw" type="password" autocomplete="new-password">
+      <label data-t="confirmPw"></label><input id="r-pw2" type="password" autocomplete="new-password">
+      <div class="row" style="margin-top:20px"><button id="r-go" data-t="save"></button><button class="ghost" id="r-back" data-t="back"></button></div>
+      <div class="msg" id="r-msg"></div>
+    </div>
+
+    <div id="v-setpw" class="card hidden">
+      <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
+      <h1 data-t="setPw"></h1>
+      <label data-t="newPw"></label><input id="p-pw" type="password" autocomplete="new-password">
+      <label data-t="confirmPw"></label><input id="p-pw2" type="password" autocomplete="new-password">
+      <button id="p-go" style="width:100%;margin-top:20px" data-t="save"></button>
+      <div class="msg" id="p-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= app ================= -->
+<div id="v-home" class="app hidden">
+  <aside class="side"><div class="side-in">
+    <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
+    <nav class="nav" id="tabs">
+      <button data-tab="overview"><span class="ic" data-ic="home"></span><span data-t="overview"></span></button>
+      <button data-tab="subs"><span class="ic" data-ic="users"></span><span data-t="subs"></span></button>
+      <div class="nav-h own" data-t="admin"></div>
+      <button class="own" data-tab="team"><span class="ic" data-ic="shield"></span><span data-t="admins"></span></button>
+      <button class="own" data-tab="settings"><span class="ic" data-ic="gear"></span><span data-t="settings"></span></button>
+    </nav>
+    <div class="help"><span class="ic" data-ic="radar"></span><b data-t="engineCard"></b><p data-t="engineCardHint"></p><button id="side-run" data-t="runNow"></button></div>
+  </div></aside>
+
+  <main class="main">
+    <header class="top">
+      <span class="logo mlogo brand" style="padding:0"><span class="logo" data-ic="logo"></span></span>
+      <div><div class="crumb"><span data-t="pages"></span> / <b id="crumb"></b></div><h1 id="pageTitle"></h1></div>
+      <span class="sp"></span>
+      <button class="ghost sm" id="langBtn2">العربية</button>
+      <span class="who"><span class="avatar" id="avatar"></span><span id="who"></span></span>
+      <button class="ghost sm" id="out" data-t="signOut"></button>
+    </header>
+
+    <section data-p="overview">
+      <div class="kpis" id="kpis"></div>
+      <div class="ovgrid">
+        <div class="card hero" id="hero"></div>
+        <div class="card"><h2 data-t="autoRate"></h2><div class="sub-h" data-t="autoRateHint"></div><div class="gauge-wrap" id="gauge"></div></div>
+        <div class="card"><h2 data-t="engineCard"></h2><div class="sub-h" id="engineSub"></div><div id="engineBox"></div></div>
+      </div>
+      <div class="chartgrid">
+        <div class="card chart"><h2 data-t="appsChart"></h2><div class="sub-h" id="appsSub"></div><div id="areaChart"></div>
+          <div class="legend"><span><i style="background:#21d4fd"></i><span data-t="sentCol"></span></span><span><i style="background:#0075ff"></i><span data-t="manualCol"></span></span></div></div>
+        <div class="card chart"><h2 data-t="jobsByField"></h2><div class="sub-h" id="fieldsSub"></div><div class="bars" id="barChart"></div><div class="stat2" id="fieldStats"></div></div>
+      </div>
+      <div class="card" id="runs-card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0" data-t="runs"></h2><span class="sp"></span><span id="run-msg" class="mute" style="font-size:12px"></span><button class="sm" id="run-now" data-t="runNow"></button></div><div id="runs" style="overflow-x:auto"></div></div>
+    </section>
+
+    <section class="card hidden" data-p="subs">
+      <div class="row"><h2 style="margin:0" data-t="subs"></h2><span class="sp"></span><input id="q" style="max-width:240px" data-ph="search"><button id="addSub" data-t="addSub"></button></div>
+      <table class="stack" style="margin-top:12px"><thead><tr><th data-t="name"></th><th data-t="status"></th><th data-t="subEnd"></th><th data-t="citiesFields"></th><th data-t="appsTodayShort"></th><th>CV</th><th></th></tr></thead><tbody id="subs"></tbody></table>
+      <div class="msg" id="s2-msg"></div>
+    </section>
+
+    <section class="card hidden" data-p="edit">
       <div class="row"><h2 style="margin:0" id="e-title"></h2><span class="sp"></span><button class="ghost sm" id="e-cancel" data-t="back"></button></div>
       <div class="grid2">
         <div><label data-t="name"></label><input id="e-name"></div>
@@ -109,39 +135,47 @@ td.acts{white-space:nowrap}input[type=file]{padding:8px}button:disabled{opacity:
       <label data-t="cv"></label><input id="e-cv" type="file" accept=".pdf,.docx,.txt">
       <small class="mute"><span id="e-cvinfo"></span> <a id="e-cvdl" class="hidden" data-t="download"></a></small>
       <h3 data-t="sendMode"></h3>
-      <p class="mute" style="margin:0;font-size:14px" id="e-modeinfo"></p>
+      <p class="mute" style="margin:0;font-size:13px" id="e-modeinfo"></p>
       <label data-t="appPwOpt"></label><input id="e-ap" type="password" autocomplete="new-password" style="max-width:320px">
       <label class="opt hidden" id="e-apclearbox"><input type="checkbox" id="e-apclear"><span data-t="apClear"></span></label>
       <h3 data-t="cities"></h3><div id="e-cities"></div>
-      <h3 data-t="fields"></h3><p class="mute" style="margin:0 0 8px;font-size:13px" data-t="fieldsHint"></p><div id="e-fields" class="chips"></div>
-      <div class="row" style="margin-top:20px"><button id="e-save" data-t="save"></button><span class="sp"></span><button class="ghost sm" id="e-del" data-t="delete"></button></div>
+      <h3 data-t="fields"></h3><p class="mute" style="margin:0 0 10px;font-size:12px" data-t="fieldsHint"></p><div id="e-fields" class="chips"></div>
+      <div class="row" style="margin-top:22px"><button id="e-save" data-t="save"></button><span class="sp"></span><button class="ghost sm" id="e-del" data-t="delete"></button></div>
       <div class="msg" id="e-msg"></div>
-    </div>
+    </section>
 
-    <div class="card hidden" data-p="settings"><h2 data-t="settings"></h2><p class="mute" style="font-size:13px" data-t="settingsHint"></p>
-      <div class="grid2" id="set-form"></div><div class="row" style="margin-top:16px"><button id="set-save" data-t="save"></button></div><div class="msg" id="set-msg"></div></div>
-    <div class="card hidden" id="c-staff" data-p="team">
+    <section class="card hidden" data-p="settings"><h2 data-t="settings"></h2><p class="mute" style="font-size:12px" data-t="settingsHint"></p>
+      <div class="grid2" id="set-form"></div><div class="row" style="margin-top:18px"><button id="set-save" data-t="save"></button></div><div class="msg" id="set-msg"></div></section>
+
+    <section class="card hidden" id="c-staff" data-p="team">
       <h2 data-t="admins"></h2>
-      <table><thead><tr><th data-t="name"></th><th data-t="email"></th><th data-t="role"></th><th data-t="status"></th><th></th></tr></thead><tbody id="staff"></tbody></table>
-      <h2 style="margin-top:20px" data-t="addAdmin"></h2>
+      <table class="stack"><thead><tr><th data-t="name"></th><th data-t="email"></th><th data-t="role"></th><th data-t="status"></th><th></th></tr></thead><tbody id="staff"></tbody></table>
+      <h2 style="margin-top:22px" data-t="addAdmin"></h2>
       <div class="row"><input id="a-name" style="max-width:220px" data-ph="name"><input id="a-email" type="email" style="max-width:260px" data-ph="email"><button id="a-go" data-t="add"></button></div>
       <div class="msg" id="a-msg"></div>
-    </div>
-  </div>
+    </section>
+  </main>
+
+  <nav class="bnav" id="mtabs">
+    <button data-tab="overview"><span class="ic" data-ic="home"></span><span data-t="overview"></span></button>
+    <button data-tab="subs"><span class="ic" data-ic="users"></span><span data-t="subs"></span></button>
+    <button class="own" data-tab="team"><span class="ic" data-ic="shield"></span><span data-t="admins"></span></button>
+    <button class="own" data-tab="settings"><span class="ic" data-ic="gear"></span><span data-t="settings"></span></button>
+  </nav>
 </div>
 <script>
-const T={en:{setupTitle:"First-time setup",setupHint:"Create the owner account. Needs the setup code saved in the repository secrets.",setupCode:"Setup code",name:"Name",email:"Email",password:"Password (10+ characters)",create:"Create owner",signIn:"Sign in",setPw:"Set your password",newPw:"New password (10+ characters)",confirmPw:"Confirm password",save:"Save",signOut:"Sign out",admins:"Team",addAdmin:"Add admin",add:"Add",role:"Role",status:"Status",active:"Active",disabled:"Disabled",noPw:"Invite pending",disable:"Disable",enable:"Enable",reset:"Reset link",subs:"Subscribers",activeSubs:"Active subscriptions",appsToday:"Applications today",autoPct:"Auto-applied today",lastRun:"Last run",never:"Never",mismatch:"Passwords do not match",pwDone:"Password saved. You can sign in now.",linkNote:"Send this one-time link to the person (valid 48 hours):",owner:"Owner",admin:"Admin",forgot:"Forgot your password?",recoverTitle:"Reset password",recoverHint:"Enter the setup code saved in the repository secrets, then choose a new password.",back:"Back",overview:"Overview",settings:"Settings",search:"Search…",addSub:"Add subscriber",editSub:"Edit subscriber",subEnd:"Subscription ends",citiesFields:"Cities / Fields",appsTodayShort:"Today (auto %)",edit:"Edit",renew:"Renew +1 month",lock:"Lock",unlock:"Unlock",locked:"Locked",expired:"Expired",noSubs:"No subscribers yet.",curCountry:"Current country",curCity:"Current city",subLang:"Dashboard language",plusMonth:"+1 month",subStart:"Started",autoMonth:"Empty = one month from today",cv:"CV (PDF, DOCX or TXT)",noCv:"No CV uploaded yet",download:"Download",sendMode:"Sending method",modeApp:"Subscriber's Gmail with an App Password (recommended)",modeCentral:"Central tool email (Reply-To = subscriber, small daily limit)",appPw:"App Password (typed by the admin, stored encrypted)",apSaved:"An App Password is saved. Leave the box empty to keep it.",apClear:"Remove the saved App Password",cities:"Search cities",fields:"Job fields",fieldsHint:"Leave empty and the AI will pick the best ones from the CV (you can edit them later).",all:"All",none:"None",delete:"Delete",confirmDel:"Delete this subscriber and all their data?",needCity:"Choose at least one search city",tooBig:"The CV file is too large",saving:"Saving…",saved:"Saved",cvFail:"Saved, but the CV upload failed",settingsHint:"These apply to all subscribers. Times are Cairo time.",set_daily_apply_limit:"Max applications per subscriber per day",set_central_daily_limit:"Max central-email applications per subscriber per day",set_min_match_score:"Minimum match score to apply (0–100)",set_email_cooldown_days:"Days before applying to the same email again",set_default_sub_days:"Default subscription length (days)",set_auto_fields_count:"Fields the AI picks when none are set",set_run_time_cloud:"Daily cloud run time",modeAppOn:"Sending from the subscriber's own Gmail (an App Password is saved). Type a new one below to replace it.",modeCentralOn:"Sending from the central tool email for now. To send from the subscriber's own Gmail, add an App Password below — or the subscriber can add it from their dashboard.",appPwOpt:"App Password (optional — stored encrypted, never shown again)",set_engine_live:"Sending mode",liveOff:"Test (dry run) — nothing is sent",liveOn:"Live — send application emails",runs:"Engine runs",runNow:"Run now",queued:"Run requested — it starts within ~15 minutes.",started:"Started",newJobs:"New jobs",sentCol:"Emailed",manualCol:"Manual",errorsCol:"Errors",dry:"test",preview:"What would be sent"},
-ar:{setupTitle:"الإعداد لأول مرة",setupHint:"إنشاء حساب المالك. محتاج كود الإعداد المحفوظ في أسرار الريبو.",setupCode:"كود الإعداد",name:"الاسم",email:"الإيميل",password:"كلمة السر (10 حروف أو أكتر)",create:"إنشاء المالك",signIn:"تسجيل الدخول",setPw:"تعيين كلمة السر",newPw:"كلمة سر جديدة (10 حروف أو أكتر)",confirmPw:"تأكيد كلمة السر",save:"حفظ",signOut:"خروج",admins:"الفريق",addAdmin:"إضافة أدمن",add:"إضافة",role:"الدور",status:"الحالة",active:"نشط",disabled:"موقوف",noPw:"دعوة لسه ماتفعّلتش",disable:"إيقاف",enable:"تفعيل",reset:"لينك Reset",subs:"المشتركين",activeSubs:"اشتراكات سارية",appsToday:"تقديمات النهارده",autoPct:"أوتوماتيك النهارده",lastRun:"آخر تشغيل",never:"لسه",mismatch:"كلمتين السر مش زي بعض",pwDone:"اتحفظت. تقدر تدخل دلوقتي.",linkNote:"ابعت اللينك ده للشخص (صالح 48 ساعة، مرة واحدة):",owner:"مالك",admin:"أدمن",forgot:"نسيت كلمة السر؟",recoverTitle:"تغيير كلمة السر",recoverHint:"اكتب كود الإعداد المحفوظ في أسرار الريبو، واختار كلمة سر جديدة.",back:"رجوع",overview:"نظرة عامة",settings:"الإعدادات",search:"بحث…",addSub:"إضافة مشترك",editSub:"تعديل مشترك",subEnd:"نهاية الاشتراك",citiesFields:"المدن / المجالات",appsTodayShort:"النهارده (أوتوماتيك %)",edit:"تعديل",renew:"تجديد شهر",lock:"قفل",unlock:"فتح",locked:"مقفول",expired:"منتهي",noSubs:"لسه مفيش مشتركين.",curCountry:"البلد الحالي",curCity:"المدينة الحالية",subLang:"لغة الداشبورد",plusMonth:"+ شهر",subStart:"بدأ",autoMonth:"فاضي = شهر من النهارده",cv:"السي في (PDF أو DOCX أو TXT)",noCv:"لسه مفيش سي في",download:"تحميل",sendMode:"طريقة الإرسال",modeApp:"جيميل المشترك بـ App Password (الأفضل)",modeCentral:"الإيميل المركزي للأداة (الرد يروح للمشترك، بحد يومي صغير)",appPw:"الـ App Password (الأدمن بيكتبه، وبيتحفظ متشفّر)",apSaved:"فيه App Password محفوظ. سيب الخانة فاضية عشان يفضل زي ما هو.",apClear:"مسح الـ App Password المحفوظ",cities:"مدن البحث",fields:"المجالات",fieldsHint:"لو سبتها فاضية، الـ AI هيختار الأنسب من السي في (وتقدر تعدّلها بعدين).",all:"الكل",none:"ولا حاجة",delete:"حذف",confirmDel:"حذف المشترك ده وكل بياناته؟",needCity:"اختار مدينة بحث واحدة على الأقل",tooBig:"ملف السي في كبير",saving:"بيتحفظ…",saved:"اتحفظ",cvFail:"اتحفظ، بس رفع السي في فشل",settingsHint:"بتتطبق على كل المشتركين. المواعيد بتوقيت القاهرة.",set_daily_apply_limit:"أقصى تقديمات للمشترك في اليوم",set_central_daily_limit:"أقصى تقديمات بالإيميل المركزي للمشترك في اليوم",set_min_match_score:"أقل درجة تطابق للتقديم (0–100)",set_email_cooldown_days:"أيام قبل التقديم على نفس الإيميل تاني",set_default_sub_days:"مدة الاشتراك الافتراضية (أيام)",set_auto_fields_count:"عدد المجالات اللي الـ AI يختارها لو مفيش",set_run_time_cloud:"ميعاد التشغيل السحابي اليومي",modeAppOn:"الإرسال من جيميل المشترك نفسه (فيه App Password محفوظ). اكتب واحد جديد تحت لو عايز تغيّره.",modeCentralOn:"الإرسال من الإيميل المركزي للأداة حاليًا. عشان يبعت من جيميل المشترك، ضيف الـ App Password تحت — أو المشترك يضيفه من الداشبورد بتاعته.",appPwOpt:"الـ App Password (اختياري — بيتحفظ متشفّر ومحدش يقدر يشوفه تاني)",set_engine_live:"وضع الإرسال",liveOff:"تجربة (Dry run) — مفيش حاجة بتتبعت",liveOn:"حقيقي — إرسال إيميلات التقديم",runs:"تشغيلات المحرك",runNow:"شغّل دلوقتي",queued:"اتطلب التشغيل — هيبدأ خلال ~15 دقيقة.",started:"البداية",newJobs:"وظايف جديدة",sentCol:"اتبعت إيميل",manualCol:"يدوي",errorsCol:"أخطاء",dry:"تجربة",preview:"اللي كان هيتبعت"}};
+const T={en:{setupTitle:"First-time setup",setupHint:"Create the owner account. Needs the setup code saved in the repository secrets.",setupCode:"Setup code",name:"Name",email:"Email",password:"Password (10+ characters)",create:"Create owner",signIn:"Sign in",setPw:"Set your password",newPw:"New password (10+ characters)",confirmPw:"Confirm password",save:"Save",signOut:"Sign out",admins:"Team",addAdmin:"Add admin",add:"Add",role:"Role",status:"Status",active:"Active",disabled:"Disabled",noPw:"Invite pending",disable:"Disable",enable:"Enable",reset:"Reset link",subs:"Subscribers",activeSubs:"Active subscriptions",appsToday:"Applications today",autoPct:"Auto-applied today",lastRun:"Last run",never:"Never",mismatch:"Passwords do not match",pwDone:"Password saved. You can sign in now.",linkNote:"Send this one-time link to the person (valid 48 hours):",owner:"Owner",admin:"Admin",forgot:"Forgot your password?",recoverTitle:"Reset password",recoverHint:"Enter the setup code saved in the repository secrets, then choose a new password.",back:"Back",overview:"Overview",settings:"Settings",search:"Search…",addSub:"Add subscriber",editSub:"Edit subscriber",subEnd:"Subscription ends",citiesFields:"Cities / Fields",appsTodayShort:"Today (auto %)",edit:"Edit",renew:"Renew +1 month",lock:"Lock",unlock:"Unlock",locked:"Locked",expired:"Expired",noSubs:"No subscribers yet.",curCountry:"Current country",curCity:"Current city",subLang:"Dashboard language",plusMonth:"+1 month",subStart:"Started",autoMonth:"Empty = one month from today",cv:"CV (PDF, DOCX or TXT)",noCv:"No CV uploaded yet",download:"Download",sendMode:"Sending method",modeApp:"Subscriber's Gmail with an App Password (recommended)",modeCentral:"Central tool email (Reply-To = subscriber, small daily limit)",appPw:"App Password (typed by the admin, stored encrypted)",apSaved:"An App Password is saved. Leave the box empty to keep it.",apClear:"Remove the saved App Password",cities:"Search cities",fields:"Job fields",fieldsHint:"Leave empty and the AI will pick the best ones from the CV (you can edit them later).",all:"All",none:"None",delete:"Delete",confirmDel:"Delete this subscriber and all their data?",needCity:"Choose at least one search city",tooBig:"The CV file is too large",saving:"Saving…",saved:"Saved",cvFail:"Saved, but the CV upload failed",settingsHint:"These apply to all subscribers. Times are Cairo time.",set_daily_apply_limit:"Max applications per subscriber per day",set_central_daily_limit:"Max central-email applications per subscriber per day",set_min_match_score:"Minimum match score to apply (0–100)",set_email_cooldown_days:"Days before applying to the same email again",set_default_sub_days:"Default subscription length (days)",set_auto_fields_count:"Fields the AI picks when none are set",set_run_time_cloud:"Daily cloud run time",modeAppOn:"Sending from the subscriber's own Gmail (an App Password is saved). Type a new one below to replace it.",modeCentralOn:"Sending from the central tool email for now. To send from the subscriber's own Gmail, add an App Password below — or the subscriber can add it from their dashboard.",appPwOpt:"App Password (optional — stored encrypted, never shown again)",set_engine_live:"Sending mode",liveOff:"Test (dry run) — nothing is sent",liveOn:"Live — send application emails",runs:"Engine runs",runNow:"Run now",queued:"Run requested — it starts within ~15 minutes.",started:"Started",newJobs:"New jobs",sentCol:"Emailed",manualCol:"Manual",errorsCol:"Errors",dry:"test",preview:"What would be sent",welcome:"Welcome back",loginHint:"Sign in to manage the job hunt.",artTitle:"Your daily job hunt, on autopilot.",artText:"Collects jobs in the UAE, Egypt and Saudi Arabia, tailors the CV for every field and applies by email — every day.",admin:"Admin",engineCard:"Hunting engine",engineCardHint:"Start a run now instead of waiting for the daily schedule.",pages:"Pages",autoRate:"Auto-apply rate",autoRateHint:"Today's applications sent by email",appsChart:"Applications",jobsByField:"Jobs collected by field",last14:"in the last 14 days",last7:"new jobs in the last 7 days",jobs7:"Jobs found (7 days)",fieldsTracked:"Fields tracked",activeCities:"Cities searched",withEmail:"Jobs with HR email",nextRun:"Daily run (Cairo)",modeLive:"Live — applications are sent",modeTest:"Test mode — nothing is sent",noData:"No data yet — it fills up after the first run.",hello:"Welcome back,",heroText:"The engine is hunting in {c} cities across {f} fields. Here is today at a glance.",heroBtn:"Manage subscribers"},
+ar:{setupTitle:"الإعداد لأول مرة",setupHint:"إنشاء حساب المالك. محتاج كود الإعداد المحفوظ في أسرار الريبو.",setupCode:"كود الإعداد",name:"الاسم",email:"الإيميل",password:"كلمة السر (10 حروف أو أكتر)",create:"إنشاء المالك",signIn:"تسجيل الدخول",setPw:"تعيين كلمة السر",newPw:"كلمة سر جديدة (10 حروف أو أكتر)",confirmPw:"تأكيد كلمة السر",save:"حفظ",signOut:"خروج",admins:"الفريق",addAdmin:"إضافة أدمن",add:"إضافة",role:"الدور",status:"الحالة",active:"نشط",disabled:"موقوف",noPw:"دعوة لسه ماتفعّلتش",disable:"إيقاف",enable:"تفعيل",reset:"لينك Reset",subs:"المشتركين",activeSubs:"اشتراكات سارية",appsToday:"تقديمات النهارده",autoPct:"أوتوماتيك النهارده",lastRun:"آخر تشغيل",never:"لسه",mismatch:"كلمتين السر مش زي بعض",pwDone:"اتحفظت. تقدر تدخل دلوقتي.",linkNote:"ابعت اللينك ده للشخص (صالح 48 ساعة، مرة واحدة):",owner:"مالك",admin:"أدمن",forgot:"نسيت كلمة السر؟",recoverTitle:"تغيير كلمة السر",recoverHint:"اكتب كود الإعداد المحفوظ في أسرار الريبو، واختار كلمة سر جديدة.",back:"رجوع",overview:"نظرة عامة",settings:"الإعدادات",search:"بحث…",addSub:"إضافة مشترك",editSub:"تعديل مشترك",subEnd:"نهاية الاشتراك",citiesFields:"المدن / المجالات",appsTodayShort:"النهارده (أوتوماتيك %)",edit:"تعديل",renew:"تجديد شهر",lock:"قفل",unlock:"فتح",locked:"مقفول",expired:"منتهي",noSubs:"لسه مفيش مشتركين.",curCountry:"البلد الحالي",curCity:"المدينة الحالية",subLang:"لغة الداشبورد",plusMonth:"+ شهر",subStart:"بدأ",autoMonth:"فاضي = شهر من النهارده",cv:"السي في (PDF أو DOCX أو TXT)",noCv:"لسه مفيش سي في",download:"تحميل",sendMode:"طريقة الإرسال",modeApp:"جيميل المشترك بـ App Password (الأفضل)",modeCentral:"الإيميل المركزي للأداة (الرد يروح للمشترك، بحد يومي صغير)",appPw:"الـ App Password (الأدمن بيكتبه، وبيتحفظ متشفّر)",apSaved:"فيه App Password محفوظ. سيب الخانة فاضية عشان يفضل زي ما هو.",apClear:"مسح الـ App Password المحفوظ",cities:"مدن البحث",fields:"المجالات",fieldsHint:"لو سبتها فاضية، الـ AI هيختار الأنسب من السي في (وتقدر تعدّلها بعدين).",all:"الكل",none:"ولا حاجة",delete:"حذف",confirmDel:"حذف المشترك ده وكل بياناته؟",needCity:"اختار مدينة بحث واحدة على الأقل",tooBig:"ملف السي في كبير",saving:"بيتحفظ…",saved:"اتحفظ",cvFail:"اتحفظ، بس رفع السي في فشل",settingsHint:"بتتطبق على كل المشتركين. المواعيد بتوقيت القاهرة.",set_daily_apply_limit:"أقصى تقديمات للمشترك في اليوم",set_central_daily_limit:"أقصى تقديمات بالإيميل المركزي للمشترك في اليوم",set_min_match_score:"أقل درجة تطابق للتقديم (0–100)",set_email_cooldown_days:"أيام قبل التقديم على نفس الإيميل تاني",set_default_sub_days:"مدة الاشتراك الافتراضية (أيام)",set_auto_fields_count:"عدد المجالات اللي الـ AI يختارها لو مفيش",set_run_time_cloud:"ميعاد التشغيل السحابي اليومي",modeAppOn:"الإرسال من جيميل المشترك نفسه (فيه App Password محفوظ). اكتب واحد جديد تحت لو عايز تغيّره.",modeCentralOn:"الإرسال من الإيميل المركزي للأداة حاليًا. عشان يبعت من جيميل المشترك، ضيف الـ App Password تحت — أو المشترك يضيفه من الداشبورد بتاعته.",appPwOpt:"الـ App Password (اختياري — بيتحفظ متشفّر ومحدش يقدر يشوفه تاني)",set_engine_live:"وضع الإرسال",liveOff:"تجربة (Dry run) — مفيش حاجة بتتبعت",liveOn:"حقيقي — إرسال إيميلات التقديم",runs:"تشغيلات المحرك",runNow:"شغّل دلوقتي",queued:"اتطلب التشغيل — هيبدأ خلال ~15 دقيقة.",started:"البداية",newJobs:"وظايف جديدة",sentCol:"اتبعت إيميل",manualCol:"يدوي",errorsCol:"أخطاء",dry:"تجربة",preview:"اللي كان هيتبعت",welcome:"أهلاً بيك تاني",loginHint:"سجّل دخول عشان تدير البحث عن الوظايف.",artTitle:"البحث عن الشغل كل يوم… أوتوماتيك.",artText:"بيجمع وظايف في الإمارات ومصر والسعودية، ويعدّل السي في لكل مجال، ويقدّم بالإيميل — كل يوم.",admin:"الإدارة",engineCard:"محرك البحث",engineCardHint:"شغّل البحث دلوقتي بدل ما تستنى الميعاد اليومي.",pages:"الصفحات",autoRate:"نسبة التقديم الأوتوماتيك",autoRateHint:"تقديمات النهارده اللي اتبعتت بالإيميل",appsChart:"التقديمات",jobsByField:"الوظايف حسب المجال",last14:"في آخر 14 يوم",last7:"وظيفة جديدة في آخر 7 أيام",jobs7:"وظايف (7 أيام)",fieldsTracked:"مجالات متابَعة",activeCities:"مدن البحث",withEmail:"وظايف فيها إيميل HR",nextRun:"التشغيل اليومي (القاهرة)",modeLive:"حقيقي — التقديمات بتتبعت",modeTest:"وضع التجربة — مفيش حاجة بتتبعت",noData:"لسه مفيش بيانات — هتظهر بعد أول تشغيل.",hello:"أهلاً بيك،",heroText:"المحرك بيدوّر في {c} مدينة و{f} مجال. ده ملخص النهارده.",heroBtn:"إدارة المشتركين"}};
 let lang=(()=>{try{return localStorage.getItem('lang')||'en'}catch{return'en'}})();
 const $=id=>document.getElementById(id), t=k=>T[lang][k]||k;
 function applyLang(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));
   document.querySelectorAll('[data-ph]').forEach(e=>e.placeholder=t(e.dataset.ph));
-  $('langBtn').textContent=lang==='ar'?'English':'العربية';}
-$('langBtn').onclick=()=>{lang=lang==='ar'?'en':'ar';try{localStorage.setItem('lang',lang)}catch{}applyLang();if(!$('v-home').classList.contains('hidden'))relang();};
+  $('langBtn').textContent=$('langBtn2').textContent=lang==='ar'?'English':'العربية';}
+$('langBtn').onclick=$('langBtn2').onclick=()=>{lang=lang==='ar'?'en':'ar';try{localStorage.setItem('lang',lang)}catch{}applyLang();if(!$('v-home').classList.contains('hidden'))relang();};
 async function call(path,opt={}){const r=await fetch(path,{method:opt.method||'GET',headers:{'content-type':'application/json'},body:opt.body?JSON.stringify(opt.body):undefined,credentials:'same-origin'});
   let d={};try{d=await r.json()}catch{}if(!r.ok)throw Object.assign(new Error(d.error||r.status),{status:r.status});return d;}
-function show(v){['setup','login','setpw','recover','home'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));document.title=v==='home'?'Job Hunter Platform':'Sign in';}
+function show(v){['setup','login','setpw','recover','home'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));$('auth').classList.toggle('hidden',v==='home');document.title=v==='home'?'Job Hunter Platform':'Sign in';}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function msg(id,text,ok){$(id).textContent=text;$(id).classList.toggle('ok',!!ok);}
 
@@ -161,7 +195,7 @@ async function loadStaff(){const rows=await call('/api/staff');
   $('staff').innerHTML=rows.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.email)}</td><td>${t(u.role)}</td>
    <td><span class="pill">${!u.has_password?t('noPw'):u.active?t('active'):t('disabled')}</span></td>
    <td>${u.role==='owner'?'':`<button class="ghost sm" data-a="toggle" data-id="${u.id}">${u.active?t('disable'):t('enable')}</button> <button class="ghost sm" data-a="reset" data-id="${u.id}">${t('reset')}</button>`}</td></tr>`).join('');
-  $('staff').querySelectorAll('button').forEach(b=>b.onclick=async()=>{try{const d=await call(`/api/staff/${b.dataset.id}/${b.dataset.a}`,{method:'POST'});
+  labelCells($('staff'));$('staff').querySelectorAll('button').forEach(b=>b.onclick=async()=>{try{const d=await call(`/api/staff/${b.dataset.id}/${b.dataset.a}`,{method:'POST'});
     if(d.link){$('a-msg').innerHTML=esc(t('linkNote'))+'<div class="link">'+esc(d.link)+'</div>';$('a-msg').classList.add('ok')}loadStaff()}catch(e){msg('a-msg',e.message)}});}
 
 let ME=null,CAT=null,SUBS=[],TAB='overview',EDIT=null,KNOWN={c:new Set(),f:new Set()};
@@ -172,12 +206,12 @@ const AR={"Abu Dhabi":"أبوظبي","Dubai":"دبي","Sharjah":"الشارقة"
 "Riyadh":"الرياض","Jeddah":"جدة","Mecca":"مكة","Medina":"المدينة المنورة","Dammam":"الدمام","Khobar":"الخبر","Dhahran":"الظهران","Jubail":"الجبيل","Al Ahsa":"الأحساء","Taif":"الطائف","Tabuk":"تبوك","Abha":"أبها","Khamis Mushait":"خميس مشيط","Buraidah":"بريدة","Hail":"حائل","Yanbu":"ينبع","Jazan":"جازان","Najran":"نجران",
 "Accounting & Finance":"محاسبة ومالية","Banking":"بنوك","Sales":"مبيعات","Marketing":"تسويق","Customer Service":"خدمة عملاء","Administration & Secretarial":"إدارة وسكرتارية","Reception & Front Office":"استقبال","Human Resources":"موارد بشرية","IT & Software":"تقنية وبرمجة","Data & Analytics":"بيانات وتحليل","Civil Engineering":"هندسة مدنية","Mechanical Engineering":"هندسة ميكانيكية","Electrical Engineering":"هندسة كهربائية","Construction & Site Management":"مقاولات وإدارة مواقع","Project Management":"إدارة مشاريع","Healthcare & Nursing":"رعاية صحية وتمريض","Pharmacy":"صيدلة","Education & Teaching":"تعليم وتدريس","Hospitality & Hotels":"فنادق وضيافة","Tourism & Travel":"سياحة وسفر","Food & Beverage":"مطاعم ومشروبات","Retail":"تجزئة","Logistics & Supply Chain":"لوجستيات وسلاسل إمداد","Procurement":"مشتريات","Real Estate":"عقارات","Graphic Design & Creative":"تصميم وإبداع","Legal":"قانوني","Security":"أمن وحراسة","Driving & Delivery":"قيادة وتوصيل"};
 const nm=s=>lang==='ar'&&AR[s]||s;
-function tab(x){if(ME&&ME.role!=='owner'&&(x==='team'||x==='settings'))x='overview';TAB=x;
+function tab(x){if(ME&&ME.role!=='owner'&&(x==='team'||x==='settings'))x='overview';TAB=x;$('crumb').textContent=$('pageTitle').textContent=t({edit:'subs',team:'admins'}[x]||x);
   document.querySelectorAll('#v-home [data-p]').forEach(e=>e.classList.toggle('hidden',e.dataset.p!==x));
-  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===x||(x==='edit'&&b.dataset.tab==='subs')));
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===x||(x==='edit'&&b.dataset.tab==='subs')));
   const f={overview:loadKpis,subs:loadSubs,team:loadStaff,settings:loadSettings}[x];if(f)f().catch(e=>msg('s2-msg',e.message));}
-document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
-async function home(){show('home');ME=await call('/api/me');$('who').textContent=ME.name+' · '+t(ME.role);
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab(b.dataset.tab);window.scrollTo(0,0)});
+async function home(){show('home');ME=await call('/api/me');$('who').textContent=ME.name+' · '+t(ME.role);$('avatar').textContent=(ME.name||'?').trim().charAt(0).toUpperCase();
   CAT=CAT||await call('/api/catalog');document.querySelectorAll('.own').forEach(e=>e.classList.toggle('hidden',ME.role!=='owner'));tab(TAB==='edit'?'subs':TAB);}
 function relang(){if(!ME)return;$('who').textContent=ME.name+' · '+t(ME.role);if(TAB==='edit'){const s=readEdit();renderLists(s.cities,s.fields);$('e-title').textContent=t(EDIT?'editSub':'addSub');modeUI()}else tab(TAB);}
 
@@ -186,7 +220,7 @@ async function loadSubs(){SUBS=await call('/api/subscribers');drawSubs();}
 function drawSubs(){const q=$('q').value.trim().toLowerCase();const rows=SUBS.filter(s=>!q||(s.name+' '+s.email).toLowerCase().includes(q));
   $('subs').innerHTML=rows.map(s=>`<tr><td><b>${esc(s.name)}</b><br><small class="mute">${esc(s.email)}</small></td><td><span class="pill ${stat(s)}">${t(stat(s))}</span></td><td>${esc(s.sub_end)}</td><td>${s.cities} / ${s.fields}</td>
    <td>${s.apps_today}${s.apps_today?' ('+Math.round(100*s.auto_today/s.apps_today)+'%)':''}</td><td>${s.has_cv?'✓':'—'}</td>
-   <td class="acts"><button class="ghost sm" data-a="edit" data-id="${s.id}">${t('edit')}</button> <button class="ghost sm" data-a="renew" data-id="${s.id}">${t('renew')}</button> <button class="ghost sm" data-a="${s.locked?'unlock':'lock'}" data-id="${s.id}">${t(s.locked?'unlock':'lock')}</button></td></tr>`).join('')||`<tr><td colspan="7" class="mute">${t('noSubs')}</td></tr>`;
+   <td class="acts"><button class="ghost sm" data-a="edit" data-id="${s.id}">${t('edit')}</button> <button class="ghost sm" data-a="renew" data-id="${s.id}">${t('renew')}</button> <button class="ghost sm" data-a="${s.locked?'unlock':'lock'}" data-id="${s.id}">${t(s.locked?'unlock':'lock')}</button></td></tr>`).join('')||`<tr><td colspan="7" class="mute">${t('noSubs')}</td></tr>`;labelCells($('subs'));
   $('subs').querySelectorAll('button').forEach(b=>b.onclick=async()=>{if(b.dataset.a==='edit')return openEdit(+b.dataset.id).catch(e=>msg('s2-msg',e.message));
     try{await call(`/api/subscribers/${b.dataset.id}/${b.dataset.a}`,{method:'POST'});loadSubs()}catch(e){msg('s2-msg',e.message)}});}
 $('q').oninput=drawSubs;$('addSub').onclick=()=>openEdit(null);
@@ -240,18 +274,71 @@ async function loadSettings(){const s=await call('/api/settings');msg('set-msg',
   $('set-form').innerHTML=SET.map(([k,ty])=>`<div><label>${esc(t('set_'+k))}</label>${ty==='bool'?`<select id="set-${k}"><option value="0" ${s[k]!=='1'?'selected':''}>${esc(t('liveOff'))}</option><option value="1" ${s[k]==='1'?'selected':''}>${esc(t('liveOn'))}</option></select>`:`<input type="${ty}" id="set-${k}" value="${esc(s[k])}" ${ty==='number'?'min="0"':''}>`}</div>`).join('');}
 $('set-save').onclick=async()=>{const b={};SET.forEach(([k])=>b[k]=$('set-'+k).value);try{await call('/api/settings',{method:'PUT',body:b});msg('set-msg',t('saved'),true)}catch(e){msg('set-msg',e.message)}};
 
-async function loadKpis(){const o=await call('/api/overview');const pct=o.applicationsToday?Math.round(100*o.autoToday/o.applicationsToday)+'%':'—';
-  $('kpis').innerHTML=[[t('subs'),o.subscribers],[t('activeSubs'),o.active],[t('appsToday'),o.applicationsToday],[t('autoPct'),pct],[t('lastRun'),o.lastRun?o.lastRun.started_at.slice(0,16)+' · '+o.lastRun.place:t('never')]]
-   .map(([k,v])=>`<div class="kpi"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('');loadRuns();}
+const IC={logo:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/><path d="M8.5 11h5M11 8.5v5"/></svg>',
+home:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+users:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="4"/><path d="M1.5 20c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5z"/><circle cx="17.5" cy="9" r="3" opacity=".7"/><path d="M18 14c2.6.3 4.5 2.2 4.5 5h-4.4" opacity=".7"/></svg>',
+shield:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z"/></svg>',
+gear:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.7 7.7 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.7 7.7 0 0 0 0 2l-2.2 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>',
+radar:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18.5 5.5"/></svg>',
+bag:'<svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M9 3h6a2 2 0 0 1 2 2v2h3a2 2 0 0 1 2 2v4H2V9a2 2 0 0 1 2-2h3V5a2 2 0 0 1 2-2zm0 4h6V5H9z"/><path d="M2 14h8v1a2 2 0 0 0 4 0v-1h8v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/></svg>',
+send:'<svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M2.5 11.2 21 3l-7.2 18.5-2.9-7.4z"/></svg>',
+bolt:'<svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
+clock:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+people:'<svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><circle cx="9" cy="8" r="4"/><path d="M1.5 20c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5z"/><circle cx="17.5" cy="9" r="3" opacity=".7"/></svg>'};
+function paintIcons(root=document){root.querySelectorAll('[data-ic]').forEach(e=>{if(!e.firstChild)e.innerHTML=IC[e.dataset.ic]||''})}
+function labelCells(tb){const th=[...tb.closest('table').querySelectorAll('thead th')].map(x=>x.textContent);tb.querySelectorAll('tr').forEach(r=>[...r.children].forEach((c,i)=>{if(th[i])c.dataset.l=th[i]}))}
+const fmtDT=s=>s?new Date(s.replace(' ','T')+'Z').toLocaleString(lang==='ar'?'ar-EG':'en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+function smooth(pts){if(pts.length<2)return'';let d=`M${pts[0][0]},${pts[0][1]}`;for(let i=0;i<pts.length-1;i++){const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;
+  d+=` C${p1[0]+(p2[0]-p0[0])/6},${p1[1]+(p2[1]-p0[1])/6} ${p2[0]-(p3[0]-p1[0])/6},${p2[1]-(p3[1]-p1[1])/6} ${p2[0]},${p2[1]}`}return d}
+function areaSvg(days){const W=600,H=230,L=34,R=26,T=14,B=26,max=Math.max(4,...days.map(x=>Math.max(x.e,x.m)));const top=Math.ceil(max/4)*4;
+  const X=i=>L+i*(W-L-R)/(days.length-1),Y=v=>T+(1-v/top)*(H-T-B);
+  const line=k=>smooth(days.map((x,i)=>[X(i),Y(x[k])])),area=k=>line(k)+` L${X(days.length-1)},${H-B} L${X(0)},${H-B} Z`;
+  let g='';for(let j=0;j<=4;j++){const v=top*j/4,y=Y(v);g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="#56577a" stroke-dasharray="4 5" stroke-opacity=".5"/><text x="${L-8}" y="${y+4}" fill="#a0aec0" font-size="10" text-anchor="end">${v}</text>`}
+  days.forEach((x,i)=>{if(i%2===0||i===days.length-1)g+=`<text x="${X(i)}" y="${H-6}" fill="#a0aec0" font-size="10" text-anchor="middle">${x.lab}</text>`});
+  return `<svg viewBox="0 0 ${W} ${H}" role="img"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#21d4fd" stop-opacity=".55"/><stop offset="1" stop-color="#21d4fd" stop-opacity="0"/></linearGradient>
+    <linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0075ff" stop-opacity=".55"/><stop offset="1" stop-color="#0075ff" stop-opacity="0"/></linearGradient></defs>${g}
+    <path d="${area('m')}" fill="url(#gb)"/><path d="${line('m')}" fill="none" stroke="#0075ff" stroke-width="3"/>
+    <path d="${area('e')}" fill="url(#ga)"/><path d="${line('e')}" fill="none" stroke="#21d4fd" stroke-width="3"/></svg>`}
+function barSvg(rows){if(!rows.length)return `<div class="empty">${esc(t('noData'))}</div>`;const W=320,H=190,B=34,max=Math.max(...rows.map(r=>r.n)),w=(W-20)/rows.length;
+  return `<svg viewBox="0 0 ${W} ${H}">`+rows.map((r,i)=>{const h=Math.max(4,(H-B-16)*r.n/max),x=10+i*w+w/2;
+    return `<rect x="${x-4}" y="${H-B-h}" width="8" height="${h}" rx="4" fill="#fff"/><text x="${x}" y="${H-B-h-6}" fill="#fff" font-size="10" text-anchor="middle">${r.n}</text>
+    <text x="${x}" y="${H-B+14}" fill="#a0aec0" font-size="9" text-anchor="middle">${esc(nm(r.field).split(/[ &و]/)[0].slice(0,9))}</text>`}).join('')+'</svg>'}
+function gaugeSvg(p){const r=80,c=Math.PI*r,v=Math.max(0,Math.min(100,p||0));
+  return `<svg viewBox="0 0 200 118"><defs><linearGradient id="gg" x1="0" x2="1"><stop offset="0" stop-color="#0075ff"/><stop offset="1" stop-color="#21d4fd"/></linearGradient></defs>
+  <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#22234b" stroke-width="14" stroke-linecap="round"/>
+  <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="url(#gg)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${c*v/100} ${c}"/>
+  </svg>`}
+const HERO_ART='<svg class="art" viewBox="0 0 300 220" fill="none" aria-hidden="true"><defs><radialGradient id="hr" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#21d4fd" stop-opacity=".45"/><stop offset="1" stop-color="#0075ff" stop-opacity="0"/></radialGradient><linearGradient id="hs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#21d4fd" stop-opacity=".8"/><stop offset="1" stop-color="#0075ff" stop-opacity="0"/></linearGradient></defs><circle cx="170" cy="130" r="120" fill="url(#hr)"/><g stroke="#7cc4ff" stroke-opacity=".4"><circle cx="170" cy="130" r="40"/><circle cx="170" cy="130" r="75"/><circle cx="170" cy="130" r="110"/></g><path d="M170 130 L170 20 A110 110 0 0 1 265 75 Z" fill="url(#hs)"/><g fill="#fff"><circle cx="232" cy="72" r="5"/><circle cx="110" cy="176" r="4" opacity=".7"/><circle cx="240" cy="170" r="6"/></g><g transform="translate(136 104)"><rect y="12" width="68" height="50" rx="11" fill="#0075ff"/><rect x="21" width="26" height="18" rx="6" stroke="#fff" stroke-width="4.5"/><rect y="30" width="68" height="6" fill="#21d4fd"/></g></svg>';
+async function loadKpis(){const o=await call('/api/overview');const pct=o.applicationsToday?Math.round(100*o.autoToday/o.applicationsToday):0;
+  const lr=o.lastRun;
+  $('kpis').innerHTML=[[t('activeSubs'),o.active,'people',`<small>/ ${o.subscribers}</small>`],[t('appsToday'),o.applicationsToday,'send',''],[t('jobs7'),o.jobs7,'bag',''],[t('lastRun'),lr?fmtDT(lr.started_at):t('never'),'clock','']]
+   .map(([k,v,ic,x])=>`<div class="kpi"><div class="t"><span>${esc(k)}</span><b>${esc(v)}${x}</b></div><div class="ic">${IC[ic]}</div></div>`).join('');
+  $('hero').innerHTML=`${HERO_ART}<div class="hi">${esc(t('hello'))}</div><h2>${esc(ME.name)}</h2><p>${esc(t('heroText').replace('{c}',o.cities).replace('{f}',o.fieldsActive))}</p>
+    <div class="go"><button class="sm" id="hero-go">${esc(t('heroBtn'))} →</button></div>`;$('hero-go').onclick=()=>tab('subs');
+  $('gauge').innerHTML=gaugeSvg(pct)+`<div class="gauge-val"><b>${o.applicationsToday?pct+'%':'—'}</b><span>${esc(t('autoPct'))}</span></div>
+    <div class="stat2"><div><span>${esc(t('sentCol'))}</span><b>${o.autoToday}</b></div><div><span>${esc(t('manualCol'))}</span><b>${o.applicationsToday-o.autoToday}</b></div></div>`;
+  $('engineSub').textContent=t(o.live?'modeLive':'modeTest');
+  $('engineBox').innerHTML=`<div class="stat2" style="margin-top:0"><div><span>${esc(t('status'))}</span><b><span class="pill ${esc(lr?lr.status:'')}">${esc(lr?lr.status:t('never'))}</span></b></div>
+    <div><span>${esc(t('nextRun'))}</span><b>${esc(o.runTime)}</b></div><div><span>${esc(t('activeCities'))}</span><b>${o.cities}</b></div><div><span>${esc(t('withEmail'))}</span><b>${o.jobs7?Math.round(100*o.jobs7Email/o.jobs7)+'%':'—'}</b></div></div>
+    <button class="ghost" style="width:100%;margin-top:14px" id="eng-set">${esc(t('settings'))}</button>`;
+  $('eng-set').onclick=()=>tab(ME.role==='owner'?'settings':'overview');
+  const map=Object.fromEntries((o.daily||[]).map(x=>[x.d,x]));const days=[];for(let i=13;i>=0;i--){const d=new Date(Date.now()-i*864e5),k=d.toISOString().slice(0,10);
+    days.push({lab:d.toLocaleDateString(lang==='ar'?'ar-EG':'en-GB',{day:'numeric',month:'short'}),e:+(map[k]?.e||0),m:+(map[k]?.m||0)})}
+  const tot=days.reduce((a,x)=>a+x.e+x.m,0);$('appsSub').innerHTML=`<b>${tot}</b> ${esc(t('last14'))}`;$('areaChart').innerHTML=areaSvg(days);
+  $('fieldsSub').innerHTML=`<b>${o.jobs7}</b> ${esc(t('last7'))}`;$('barChart').innerHTML=barSvg(o.fields||[]);
+  $('fieldStats').innerHTML=`<div><span>${esc(t('fieldsTracked'))}</span><b>${o.fieldsActive}</b></div><div><span>${esc(t('activeCities'))}</span><b>${o.cities}</b></div>`;
+  loadRuns();}
 async function loadRuns(){const r=await call('/api/runs');const st=x=>x.stats||{};
-  $('runs').innerHTML=(r.requested&&(!r.runs[0]||r.requested>r.runs[0].started_at)?`<p class="muted">${esc(t('queued'))}</p>`:'')+(r.runs.length?`<table><tr><th>${esc(t('started'))}</th><th>${esc(t('status'))}</th><th>${esc(t('newJobs'))}</th><th>${esc(t('sentCol'))}</th><th>${esc(t('manualCol'))}</th><th>${esc(t('errorsCol'))}</th></tr>`+r.runs.map(x=>`<tr><td>${esc(x.started_at.slice(0,16))} · ${esc(x.place)}</td><td>${esc(x.status)}${st(x).dry_run?' · '+esc(t('dry')):''}</td><td>${esc(st(x).jobs_new??'')}</td><td>${esc(st(x).sent??'')}</td><td>${esc(st(x).manual??'')}</td><td title="${esc((st(x).errors||[]).join('\n'))}">${esc((st(x).errors||[]).length)}</td></tr>`+((st(x).preview||[]).length?`<tr><td colspan="6"><details><summary>${esc(t('preview'))} (${st(x).preview.length})</summary>${st(x).preview.map(p=>`<div class="muted"><b>${esc(p.score)} · ${esc(p.title)} — ${esc(p.company||'')} (${esc(p.city)})</b> → ${esc(p.method==='email'?p.to:t('manualCol'))}${p.body?`<pre style="white-space:pre-wrap">${esc(p.subject)}\n\n${esc(p.body)}</pre>`:''}</div>`).join('')}</details></td></tr>`:'')).join('')+'</table>':`<p class="muted">${esc(t('never'))}</p>`);}
+  $('runs').innerHTML=(r.requested&&(!r.runs[0]||r.requested>r.runs[0].started_at)?`<p class="muted">${esc(t('queued'))}</p>`:'')+(r.runs.length?`<table><tr><th>${esc(t('started'))}</th><th>${esc(t('status'))}</th><th>${esc(t('newJobs'))}</th><th>${esc(t('sentCol'))}</th><th>${esc(t('manualCol'))}</th><th>${esc(t('errorsCol'))}</th></tr>`+r.runs.map(x=>`<tr><td>${esc(fmtDT(x.started_at))} · ${esc(x.place)}</td><td><span class="pill ${esc(x.status)}">${esc(x.status)}</span>${st(x).dry_run?' · '+esc(t('dry')):''}</td><td>${esc(st(x).jobs_new??'')}</td><td>${esc(st(x).sent??'')}</td><td>${esc(st(x).manual??'')}</td><td title="${esc((st(x).errors||[]).join('\n'))}">${esc((st(x).errors||[]).length)}</td></tr>`+((st(x).preview||[]).length?`<tr><td colspan="6"><details><summary>${esc(t('preview'))} (${st(x).preview.length})</summary>${st(x).preview.map(p=>`<div class="muted"><b>${esc(p.score)} · ${esc(p.title)} — ${esc(p.company||'')} (${esc(p.city)})</b> → ${esc(p.method==='email'?p.to:t('manualCol'))}${p.body?`<pre style="white-space:pre-wrap">${esc(p.subject)}\n\n${esc(p.body)}</pre>`:''}</div>`).join('')}</details></td></tr>`:'')).join('')+'</table>':`<p class="muted">${esc(t('never'))}</p>`);}
+$('side-run').onclick=()=>{tab('overview');$('run-now').click()};
 $('run-now').onclick=async()=>{try{await call('/api/run-now',{method:'POST',body:{}});msg('run-msg',t('queued'),true);loadRuns()}catch(e){msg('run-msg',e.message)}};
 
-async function boot(){applyLang();
+async function boot(){applyLang();paintIcons();
   if(location.hash.startsWith('#set-password=')){show('setpw');return}
   try{await call('/api/me');return home()}catch{}
   try{const s=await call('/api/setup');show(s.needed?'setup':'login')}catch{show('login')}}
 boot();
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 </script>
 </body>
 </html>

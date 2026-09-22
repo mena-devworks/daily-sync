@@ -34,17 +34,16 @@ jobs:
           fi
       - name: Apply schema
         run: $W d1 execute daily-sync-db --remote --file db/schema.sql --yes
-      - name: Ensure workers.dev subdomain
+      - name: Build
         run: |
-          API=https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain
-          CUR=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" $API | jq -r '.result.subdomain // empty')
-          if [ "$CUR" != "mena-devworks" ]; then
-            curl -s -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" -d '{"subdomain":"mena-devworks"}' $API | jq -r '.success, (.errors[]?.message)'
-          else echo "subdomain: $CUR"; fi
-      - name: Deploy worker
-        run: $W deploy
-      - name: Push worker secrets
+          mkdir -p dist && cp -r public/. dist/ && cp worker/index.js dist/_worker.js
+      - name: Ensure Pages project
+        run: |
+          $W pages project list 2>/dev/null | grep -q ' daily-sync ' || $W pages project create daily-sync --production-branch main
+      - name: Deploy
+        run: $W pages deploy --branch main --commit-dirty=true
+      - name: Push secrets
         env:
           SETUP_CODE: ${{ secrets.SETUP_CODE }}
         run: |
-          if [ -n "$SETUP_CODE" ]; then printf '%s' "$SETUP_CODE" | $W secret put SETUP_CODE >/dev/null && echo "SETUP_CODE set"; fi
+          if [ -n "$SETUP_CODE" ]; then printf '%s' "$SETUP_CODE" | $W pages secret put SETUP_CODE --project-name daily-sync >/dev/null && echo "SETUP_CODE set"; fi

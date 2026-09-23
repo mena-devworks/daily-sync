@@ -48,10 +48,3 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
           if [ -n "${{ inputs.subscriber }}" ]; then ARGS="$ARGS --subscriber ${{ inputs.subscriber }}"; fi
           python -m engine.main $ARGS
-      - name: Upload tailored CVs to R2
-        if: always() && steps.gate.outputs.run == 'true' && hashFiles('out/tailored/**') != ''
-        run: |
-          if ! npx --yes wrangler@4 r2 bucket list 2>/dev/null | grep -q daily-sync-files; then echo "::warning::R2 not enabled - tailored PDFs not uploaded"; exit 0; fi
-          cd out && find tailored -name '*.pdf' | while read f; do
-            npx --yes wrangler@4 r2 object put "daily-sync-files/$f" --file "$f" --content-type application/pdf --remote >/dev/null && echo "uploaded $f"
-          done

@@ -3,6 +3,7 @@
 Usage: python -m engine.main [--dry-run] [--place cloud|device] [--subscriber ID]
 """
 import argparse, json, os, re, sys, time, traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 from .db import D1
@@ -13,7 +14,7 @@ from .mailer import Mailer, compose
 DEFAULTS = {"daily_apply_limit": "20", "central_daily_limit": "5", "min_match_score": "60", "email_cooldown_days": "14",
             "auto_fields_count": "5", "engine_live": "0"}
 FIELDS = list(sources.QUERY)
-BACKLOG_DAYS, MAX_COMBOS, SCORE_BATCH, MAX_CANDIDATES = 7, 60, 8, 60
+BACKLOG_DAYS, MAX_COMBOS, SCORE_BATCH, MAX_CANDIDATES, WORKERS = 7, 60, 12, 60, 4
 OUT = os.environ.get("ENGINE_OUT", "out")
 
 
@@ -44,6 +45,16 @@ class Engine:
     def err(self, msg):
         log("! " + msg)
         self.stats["errors"].append(msg[:300])
+
+    def progress(self, phase):
+        """Live status for the dashboard while the run is going."""
+        log(f"[{phase}]")
+        self.stats["phase"] = phase
+        if getattr(self, "run_id", None):
+            try:
+                self.db.q("UPDATE runs SET stats_json = ? WHERE id = ?", json.dumps({k: v for k, v in self.stats.items() if k != "preview"}, ensure_ascii=False), self.run_id)
+            except Exception:
+                pass
 
     def ai(self):
         if not self.llm:
@@ -82,14 +93,25 @@ class Engine:
         log(f"Collect: {len(combos)} field x city combos, {len(todo)} to fetch")
         self.stats["combos"] = len(todo)
         cols = ["fp", "title", "company", "country", "city", "field", "url", "apply_email", "source", "description", "posted_at"]
-        for field, country, city in todo:
-            rows = sources.collect(field, country, city, log=log)
-            before = self.db.one("SELECT COUNT(*) n FROM jobs")["n"]
-            for i in range(0, len(rows), 9):  # D1 allows 100 bound params per statement
-                chunk = rows[i:i + 9]
-                self.db.q(f"INSERT OR IGNORE INTO jobs ({','.join(cols)}) VALUES " + ",".join(["(" + ",".join("?" * len(cols)) + ")"] * len(chunk)),
-                          *[r[c] for r in chunk for c in cols])
-            self.stats["jobs_new"] += self.db.one("SELECT COUNT(*) n FROM jobs")["n"] - before
+        def fetch(c):
+            try:
+                return c, sources.collect(*c, log=log)
+            except Exception as e:
+                return c, e
+        done = 0
+        with ThreadPoolExecutor(WORKERS) as ex:
+            for fut in as_completed([ex.submit(fetch, c) for c in todo]):
+                (field, country, city), rows = fut.result()
+                done += 1
+                if isinstance(rows, Exception):
+                    self.err(f"collect {field}/{city}: {rows}"); continue
+                before = self.db.one("SELECT COUNT(*) n FROM jobs")["n"]
+                for i in range(0, len(rows), 9):  # D1 allows 100 bound params per statement
+                    chunk = rows[i:i + 9]
+                    self.db.q(f"INSERT OR IGNORE INTO jobs ({','.join(cols)}) VALUES " + ",".join(["(" + ",".join("?" * len(cols)) + ")"] * len(chunk)),
+                              *[r[c] for r in chunk for c in cols])
+                self.stats["jobs_new"] += self.db.one("SELECT COUNT(*) n FROM jobs")["n"] - before
+                self.progress(f"collect {done}/{len(todo)}")
 
     # ---------- CV ----------
     def base_profile(self, sub):
@@ -135,7 +157,8 @@ class Engine:
         for i in range(0, len(jobs), SCORE_BATCH):
             batch = jobs[i:i + SCORE_BATCH]
             items = [{"id": j["id"], "title": j["title"], "company": j["company"], "city": j["city"],
-                      "description": (j["description"] or "")[:1500]} for j in batch]
+                      "description": (j["description"] or "")[:1000]} for j in batch]
+            self.progress(f"scoring {i + len(batch)}/{len(jobs)}")
             try:
                 r = self._score_call(prof, items)
             except LLMError as e:
@@ -159,6 +182,7 @@ class Engine:
     # ---------- per subscriber ----------
     def process(self, sub):
         log(f"\n== Subscriber #{sub['id']} {sub['name']}")
+        self.progress(f"subscriber #{sub['id']}")
         if not sub["cities"]:
             return self.err(f"#{sub['id']}: no enabled cities")
         base = self.base_profile(sub)
@@ -245,7 +269,9 @@ class Engine:
 
     # ---------- run ----------
     def run(self):
-        run_id = self.db.one("INSERT INTO runs (place, status) VALUES (?, 'running') RETURNING id", self.place)["id"]
+        # a run that was cancelled or crashed never finished: close it so it does not block "Run now"
+        self.db.q("UPDATE runs SET status = 'aborted', finished_at = datetime('now') WHERE status = 'running'")
+        run_id = self.run_id = self.db.one("INSERT INTO runs (place, status) VALUES (?, 'running') RETURNING id", self.place)["id"]
         status = "ok"
         try:
             subs = [s for s in self.subscribers() if (s.get("cv_text") or "").strip()]
@@ -256,6 +282,7 @@ class Engine:
                     self.auto_fields(s)
                 except LLMError as e:
                     self.err(f"#{s['id']} auto fields: {e}")
+            self.progress("collect")
             self.collect(subs)
             for s in subs:
                 try:

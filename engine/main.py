@@ -121,6 +121,7 @@ class Engine:
             return json.loads(row["content_json"])
         base = cvmod.build_base(self.ai(), sub["cv_text"])
         self.db.q("DELETE FROM tailored_cvs WHERE subscriber_id = ?", sub["id"])  # CV changed -> old versions are stale
+        self.db.q("DELETE FROM tailored_pdfs WHERE subscriber_id = ?", sub["id"])
         self.db.q("INSERT INTO tailored_cvs (subscriber_id, field, source_hash, content_json) VALUES (?,?,?,?)",
                   sub["id"], "__base__", h, json.dumps(base, ensure_ascii=False))
         return base
@@ -145,6 +146,10 @@ class Engine:
                       "pdf_key=excluded.pdf_key, created_at=datetime('now')",
                       sub["id"], field, h, json.dumps(prof, ensure_ascii=False), key)
             log(f"  tailored CV: {field} (difference {prof.get('difference')})")
+        if not self.dry or not self.db.one("SELECT 1 x FROM tailored_pdfs WHERE subscriber_id = ? AND field = ?", sub["id"], field):
+            import base64
+            self.db.q("INSERT INTO tailored_pdfs (subscriber_id, field, data, size) VALUES (?,?,?,?) ON CONFLICT(subscriber_id, field) DO UPDATE SET "
+                      "data=excluded.data, size=excluded.size, updated_at=datetime('now')", sub["id"], field, base64.b64encode(pdf).decode(), len(pdf))
         cache[field] = (prof, pdf)
         return cache[field]
 

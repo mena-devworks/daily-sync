@@ -14,16 +14,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="/app.css">
+<script src="/theme.js"></script>
 <style>
-.steps{margin:6px 0 0;padding-inline-start:22px;line-height:1.8;font-size:14px}.steps li{margin-bottom:8px}.steps a{color:var(--acc2)}
+.steps{margin:6px 0 0;padding-inline-start:22px;line-height:1.8;font-size:14px}.steps li{margin-bottom:8px}.steps a{color:var(--link)}
 .note{border:1px solid rgba(255,181,71,.35);background:rgba(255,181,71,.08);color:var(--warn);border-radius:14px;padding:12px 14px;font-size:13px;margin:12px 0}
 .note.ok{border-color:rgba(1,181,116,.35);background:rgba(1,181,116,.08);color:var(--ok)}
-.jt a.apply{color:var(--acc2);font-weight:700;text-decoration:none}.jt td{vertical-align:top}
+.jt a.apply{color:var(--link);font-weight:700;text-decoration:none}.jt td{vertical-align:top}
 .cvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
-.cvc{border:1px solid var(--line);border-radius:18px;padding:16px;background:rgba(255,255,255,.03)}.cvc b{display:block;margin-bottom:4px}
+.cvc{border:1px solid var(--line);border-radius:18px;padding:16px;background:var(--soft)}.cvc b{display:block;margin-bottom:4px}
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.filters select{width:auto}
-a.btn{display:inline-block;padding:10px 18px;border-radius:12px;background:var(--acc);color:#fff;font:600 13px var(--font);text-decoration:none}a.btn.sm{padding:6px 12px;font-size:12px;border-radius:10px}a.btn.ghost{background:rgba(255,255,255,.05);color:var(--ink);border:1px solid var(--line)}
-code.k{background:rgba(0,0,0,.35);padding:2px 6px;border-radius:6px;font-size:12px}
+a.btn{display:inline-block;padding:10px 18px;border-radius:12px;background:var(--acc);color:#fff;font:600 13px var(--font);text-decoration:none}a.btn.sm{padding:6px 12px;font-size:12px;border-radius:10px}a.btn.ghost{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+code.k{background:var(--code);padding:2px 6px;border-radius:6px;font-size:12px}
 </style>
 </head>
 <body>
@@ -43,7 +44,7 @@ code.k{background:rgba(0,0,0,.35);padding:2px 6px;border-radius:6px;font-size:12
     <h2 style="margin-top:22px" data-t="artTitle"></h2><p data-t="artText"></p>
   </div>
   <div class="auth-side" style="position:relative">
-    <div class="auth-top"><button class="ghost sm" id="langBtn">العربية</button></div>
+    <div class="auth-top"><button class="ghost sm thm" type="button"></button><button class="ghost sm" id="langBtn">العربية</button></div>
     <div id="v-login" class="card hidden">
       <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
       <h1 data-t="welcome"></h1><p class="mute" style="margin:0" data-t="loginHint"></p>
@@ -82,6 +83,7 @@ code.k{background:rgba(0,0,0,.35);padding:2px 6px;border-radius:6px;font-size:12
       <span class="logo mlogo brand" style="padding:0"><span class="logo" data-ic="logo"></span></span>
       <div><div class="crumb"><span data-t="pages"></span> / <b id="crumb"></b></div><h1 id="pageTitle"></h1></div>
       <span class="sp"></span>
+      <button class="ghost sm thm" type="button"></button>
       <button class="ghost sm" id="langBtn2">العربية</button>
       <span class="who"><span class="avatar" id="avatar"></span><span id="who"></span></span>
       <button class="ghost sm" id="out" data-t="signOut"></button>

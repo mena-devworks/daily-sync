@@ -180,6 +180,7 @@ async function subRoutes(req, env, url, p, m, me) {
   if (p === '/api/subscribers' && m === 'POST') {
     const s = cleanSub(await body(req));
     if (s.error) return err(s.error);
+    if (await env.DB.prepare('SELECT 1 x FROM subscribers WHERE email = ?').bind(s.email).first()) return err('a subscriber with this email already exists', 409);
     const start = todayStr();
     const end = s.sub_end || addDays(start, Number(await getSetting(env, 'default_sub_days')) || 30);
     const ap = s.app_password ? await encryptSecret(env, s.app_password) : null;
@@ -214,6 +215,7 @@ async function subRoutes(req, env, url, p, m, me) {
   if (!act && m === 'PUT') {
     const s = cleanSub(await body(req));
     if (s.error) return err(s.error);
+    if (await env.DB.prepare('SELECT 1 x FROM subscribers WHERE email = ? AND id <> ?').bind(s.email, id).first()) return err('a subscriber with this email already exists', 409);
     // Optional App Password: staff can add/replace/remove it here; the subscriber can also add it from their dashboard (phase 4)
     let ap = s.clear_app_password ? null : sub.app_password_enc;
     if (s.app_password) ap = await encryptSecret(env, s.app_password);
@@ -264,7 +266,7 @@ async function subRoutes(req, env, url, p, m, me) {
     const link = await oneTimeLink(env, url.origin, 'sub', id, sub.pw_hash ? 'reset' : 'invite', '/me');
     await env.DB.prepare('DELETE FROM reset_requests WHERE subscriber_id = ?').bind(id).run();
     await audit(env, me.id, 'sub_link', { id });
-    return json({ ok: true, link, dashboard: `${url.origin}/me?u=${sub.slug}` });
+    return json({ ok: true, link, dashboard: `${url.origin}/me` });
   }
 
   if (act === 'cv' && m === 'POST') {
@@ -321,14 +323,15 @@ const subReadOnly = (s) => !!s.locked || s.sub_end < todayStr();
 async function meRoutes(req, env, url, p, m) {
   if (p === '/api/me/login' && m === 'POST') {
     const b = await body(req);
-    const slug = String(b.slug || '').trim();
-    const key = 'sub:' + slug;
-    if (!slug || await tooManyFails(env, key)) return err('too many attempts, wait 15 minutes', 429);
-    const u = await env.DB.prepare('SELECT id, pw_hash, pw_salt FROM subscribers WHERE slug = ?').bind(slug).first();
+    const email = String(b.email || '').trim().toLowerCase(), slug = String(b.slug || '').trim();
+    if (!email && !slug) return err('email required');
+    const key = 'sub:' + (email || slug);
+    if (await tooManyFails(env, key)) return err('too many attempts, wait 15 minutes', 429);
+    const u = await env.DB.prepare(`SELECT id, pw_hash, pw_salt FROM subscribers WHERE ${email ? 'email' : 'slug'} = ? ORDER BY id DESC LIMIT 1`).bind(email || slug).first();
     const ok = u && u.pw_hash && safeEqual((await hashPassword(String(b.password || ''), u.pw_salt)).hash, u.pw_hash);
     if (!ok) {
       await env.DB.prepare('INSERT INTO login_fails (key) VALUES (?)').bind(key).run();
-      return err('wrong password', 401);
+      return err('wrong email or password', 401);
     }
     await env.DB.prepare('DELETE FROM login_fails WHERE key = ?').bind(key).run();
     return json({ ok: true }, 200, { 'set-cookie': await newSession(env, 'sub', u.id) });
@@ -340,10 +343,11 @@ async function meRoutes(req, env, url, p, m) {
   }
   // Forgot password: recorded for the team (they send a new link). Same answer whether or not the slug exists.
   if (p === '/api/me/forgot' && m === 'POST') {
-    const slug = String((await body(req)).slug || '').trim();
+    const email = String((await body(req)).email || '').trim().toLowerCase();
+    if (!validEmail(email)) return err('enter your email first');
     if (await tooManyFails(env, 'forgot')) return json({ ok: true });
     await env.DB.prepare('INSERT INTO login_fails (key) VALUES (?)').bind('forgot').run();
-    const u = slug && await env.DB.prepare('SELECT id FROM subscribers WHERE slug = ?').bind(slug).first();
+    const u = await env.DB.prepare('SELECT id FROM subscribers WHERE email = ? ORDER BY id DESC LIMIT 1').bind(email).first();
     if (u) await env.DB.prepare('INSERT INTO reset_requests (subscriber_id) VALUES (?) ON CONFLICT(subscriber_id) DO UPDATE SET at = datetime(\'now\')').bind(u.id).run();
     return json({ ok: true });
   }

@@ -122,3 +122,13 @@ CREATE TABLE IF NOT EXISTS cv_files (
   data TEXT,
   uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- v3: tailored CV PDFs kept in D1 (base64) — no R2 needed (fully free)
+CREATE TABLE IF NOT EXISTS tailored_pdfs (
+  subscriber_id INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
+  field TEXT NOT NULL,
+  data TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (subscriber_id, field)
+);

@@ -219,7 +219,7 @@ class Engine:
             keep.append(j)
         scores = self.score(base, keep)
         min_score = int(self.s["min_match_score"])
-        cache = {}
+        cache, sent_to = {}, set()
         for j in sorted(keep, key=lambda j: -scores.get(j["id"], (0, ""))[0]):
             sc, pitch = scores.get(j["id"], (None, ""))
             if sc is None:
@@ -232,12 +232,15 @@ class Engine:
             except cvmod.CVNotReady as e:
                 self.err(f"#{sub['id']} {j['field']}: {e}"); continue
             to = j["apply_email"]
+            if to and (to in sent_to or sources.BAD_EMAIL.search(to)):
+                to = None  # one email per HR mailbox per run; re-check filters on stored jobs
             can_central = central_today < central_cap
             if to and self.db.one("SELECT 1 x FROM applications WHERE subscriber_id = ? AND recipient LIKE ? AND sent_at >= ? LIMIT 1",
                                   sub["id"], to + "%", cooldown_since):
                 to = None  # same HR mailbox inside the cooldown window -> manual
             if to and sent_today < daily and (app_pw or can_central):
                 subject, body = compose(sub, prof, j, pitch)
+                sent_to.add(to)
                 if self.dry:
                     self.preview(sub, j, sc, "email", to, subject, body); sent_today += 1; continue
                 try:

@@ -36,8 +36,8 @@ async function body(req) {
   try { return await req.json(); } catch { return {}; }
 }
 
-function sessionCookie(token, maxAge) {
-  return `sid=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+function sessionCookie(token, maxAge, name = 'sid') {
+  return `${name}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 }
 function readCookie(req, name) {
   const m = (req.headers.get('cookie') || '').match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
@@ -64,15 +64,15 @@ async function newSession(env, kind, userId) {
   const token = randomToken();
   await env.DB.prepare('INSERT INTO sessions (token_hash, kind, user_id, expires_at) VALUES (?,?,?,?)')
     .bind(await sha256(token), kind, userId, isoIn(SESSION_DAYS * 864e5)).run();
-  return sessionCookie(token, SESSION_DAYS * 86400);
+  return sessionCookie(token, SESSION_DAYS * 86400, kind === 'sub' ? 'ssid' : 'sid');
 }
 
-async function oneTimeLink(env, origin, kind, userId, purpose) {
+async function oneTimeLink(env, origin, kind, userId, purpose, path = '/') {
   const token = randomToken();
   await env.DB.prepare('DELETE FROM tokens WHERE kind = ? AND user_id = ?').bind(kind, userId).run();
   await env.DB.prepare('INSERT INTO tokens (token_hash, kind, user_id, purpose, expires_at) VALUES (?,?,?,?,?)')
     .bind(await sha256(token), kind, userId, purpose, isoIn(LINK_HOURS * 36e5)).run();
-  return `${origin}/#set-password=${token}`;
+  return `${origin}${path}#set-password=${token}`;
 }
 
 const audit = (env, staffId, action, detail) =>
@@ -169,7 +169,9 @@ async function subRoutes(req, env, url, p, m, me) {
         (SELECT COUNT(*) FROM subscriber_fields f WHERE f.subscriber_id = s.id AND f.enabled = 1) fields,
         (SELECT COUNT(*) FROM applications a WHERE a.subscriber_id = s.id AND substr(a.created_at,1,10) = ?1) apps_today,
         (SELECT COUNT(*) FROM applications a WHERE a.subscriber_id = s.id AND a.method = 'email' AND substr(a.created_at,1,10) = ?1) auto_today,
-        EXISTS(SELECT 1 FROM cv_files v WHERE v.subscriber_id = s.id) has_cv
+        EXISTS(SELECT 1 FROM cv_files v WHERE v.subscriber_id = s.id) has_cv,
+        EXISTS(SELECT 1 FROM reset_requests r WHERE r.subscriber_id = s.id) reset_req,
+        s.pw_hash IS NOT NULL has_password
        FROM subscribers s ORDER BY s.id DESC`
     ).bind(todayStr()).all();
     return json(r.results);
@@ -191,7 +193,7 @@ async function subRoutes(req, env, url, p, m, me) {
     return json({ ok: true, id });
   }
 
-  const mm = p.match(/^\/api\/subscribers\/(\d+)(?:\/(lock|unlock|renew|cv))?$/);
+  const mm = p.match(/^\/api\/subscribers\/(\d+)(?:\/(lock|unlock|renew|cv|link))?$/);
   if (!mm) return null;
   const id = Number(mm[1]);
   const sub = await env.DB.prepare('SELECT * FROM subscribers WHERE id = ?').bind(id).first();
@@ -205,7 +207,8 @@ async function subRoutes(req, env, url, p, m, me) {
       env.DB.prepare('SELECT name, size, store, uploaded_at FROM cv_files WHERE subscriber_id = ?').bind(id).first(),
     ]);
     const { app_password_enc, pw_hash, pw_salt, cv_text, ...safe } = sub;
-    return json({ ...safe, has_app_password: !!app_password_enc, has_cv_text: !!cv_text, cities: c.results, fields: f.results, cv });
+    const rr = await env.DB.prepare('SELECT at FROM reset_requests WHERE subscriber_id = ?').bind(id).first();
+    return json({ ...safe, has_password: !!pw_hash, reset_requested: rr ? rr.at : null, has_app_password: !!app_password_enc, has_cv_text: !!cv_text, cities: c.results, fields: f.results, cv });
   }
 
   if (!act && m === 'PUT') {
@@ -232,6 +235,9 @@ async function subRoutes(req, env, url, p, m, me) {
       env.DB.prepare('DELETE FROM cv_files WHERE subscriber_id = ?').bind(id),
       env.DB.prepare('DELETE FROM applications WHERE subscriber_id = ?').bind(id),
       env.DB.prepare('DELETE FROM tailored_cvs WHERE subscriber_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM tailored_pdfs WHERE subscriber_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM reset_requests WHERE subscriber_id = ?').bind(id),
+      env.DB.prepare("DELETE FROM tokens WHERE kind='sub' AND user_id = ?").bind(id),
       env.DB.prepare("DELETE FROM sessions WHERE kind='sub' AND user_id = ?").bind(id),
       env.DB.prepare('DELETE FROM subscribers WHERE id = ?').bind(id),
     ]);
@@ -251,6 +257,14 @@ async function subRoutes(req, env, url, p, m, me) {
     await env.DB.prepare("UPDATE subscribers SET sub_end = ?, updated_at = datetime('now') WHERE id = ?").bind(end, id).run();
     await audit(env, me.id, 'sub_renew', { id, sub_end: end });
     return json({ ok: true, sub_end: end });
+  }
+
+  // Phase 4: one-time "set your password" link for the subscriber (also used for resets)
+  if (act === 'link' && m === 'POST') {
+    const link = await oneTimeLink(env, url.origin, 'sub', id, sub.pw_hash ? 'reset' : 'invite', '/me');
+    await env.DB.prepare('DELETE FROM reset_requests WHERE subscriber_id = ?').bind(id).run();
+    await audit(env, me.id, 'sub_link', { id });
+    return json({ ok: true, link, dashboard: `${url.origin}/me?u=${sub.slug}` });
   }
 
   if (act === 'cv' && m === 'POST') {
@@ -287,6 +301,128 @@ async function subRoutes(req, env, url, p, m, me) {
     else bytes = Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0));
     return new Response(bytes, { headers: { 'content-type': f.mime || 'application/octet-stream', 'cache-control': 'no-store',
       'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(f.name)}` } });
+  }
+
+  return err('not found', 404);
+}
+
+// ---------------- phase 4: subscriber dashboard (/api/me/...) ----------------
+// Separate cookie (ssid) so a staff member and a subscriber can be signed in on the same browser.
+async function currentSub(req, env) {
+  const t = readCookie(req, 'ssid');
+  if (!t) return null;
+  return await env.DB.prepare(
+    `SELECT s.* FROM sessions x JOIN subscribers s ON s.id = x.user_id
+     WHERE x.token_hash = ? AND x.kind = 'sub' AND x.expires_at > ?`
+  ).bind(await sha256(t), new Date().toISOString()).first() || null;
+}
+const subReadOnly = (s) => !!s.locked || s.sub_end < todayStr();
+
+async function meRoutes(req, env, url, p, m) {
+  if (p === '/api/me/login' && m === 'POST') {
+    const b = await body(req);
+    const slug = String(b.slug || '').trim();
+    const key = 'sub:' + slug;
+    if (!slug || await tooManyFails(env, key)) return err('too many attempts, wait 15 minutes', 429);
+    const u = await env.DB.prepare('SELECT id, pw_hash, pw_salt FROM subscribers WHERE slug = ?').bind(slug).first();
+    const ok = u && u.pw_hash && safeEqual((await hashPassword(String(b.password || ''), u.pw_salt)).hash, u.pw_hash);
+    if (!ok) {
+      await env.DB.prepare('INSERT INTO login_fails (key) VALUES (?)').bind(key).run();
+      return err('wrong password', 401);
+    }
+    await env.DB.prepare('DELETE FROM login_fails WHERE key = ?').bind(key).run();
+    return json({ ok: true }, 200, { 'set-cookie': await newSession(env, 'sub', u.id) });
+  }
+  if (p === '/api/me/logout' && m === 'POST') {
+    const t = readCookie(req, 'ssid');
+    if (t) await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await sha256(t)).run();
+    return json({ ok: true }, 200, { 'set-cookie': sessionCookie('', 0, 'ssid') });
+  }
+  // Forgot password: recorded for the team (they send a new link). Same answer whether or not the slug exists.
+  if (p === '/api/me/forgot' && m === 'POST') {
+    const slug = String((await body(req)).slug || '').trim();
+    if (await tooManyFails(env, 'forgot')) return json({ ok: true });
+    await env.DB.prepare('INSERT INTO login_fails (key) VALUES (?)').bind('forgot').run();
+    const u = slug && await env.DB.prepare('SELECT id FROM subscribers WHERE slug = ?').bind(slug).first();
+    if (u) await env.DB.prepare('INSERT INTO reset_requests (subscriber_id) VALUES (?) ON CONFLICT(subscriber_id) DO UPDATE SET at = datetime(\'now\')').bind(u.id).run();
+    return json({ ok: true });
+  }
+
+  const s = await currentSub(req, env);
+  if (!s) return err('not signed in', 401);
+  const ro = subReadOnly(s);
+
+  if (p === '/api/me/info' && m === 'GET') {
+    const [c, f, live] = await Promise.all([
+      env.DB.prepare('SELECT country, city FROM subscriber_cities WHERE subscriber_id = ? AND enabled = 1').bind(s.id).all(),
+      env.DB.prepare('SELECT field, auto_picked FROM subscriber_fields WHERE subscriber_id = ? AND enabled = 1').bind(s.id).all(),
+      getSetting(env, 'engine_live'),
+    ]);
+    return json({ name: s.name, email: s.email, slug: s.slug, sub_start: s.sub_start, sub_end: s.sub_end, locked: !!s.locked, readOnly: ro,
+      lang: s.lang, send_mode: s.send_mode, has_app_password: !!s.app_password_enc, cities: c.results, fields: f.results,
+      live: live === '1', runTime: await getSetting(env, 'run_time_cloud') });
+  }
+
+  if (p === '/api/me/overview' && m === 'GET') {
+    const today = todayStr(), d7 = addDays(today, -6), d14 = addDays(today, -13);
+    const [tod, week, match, daily, byField] = await Promise.all([
+      env.DB.prepare("SELECT SUM(status='sent') e, SUM(status='manual') m FROM applications WHERE subscriber_id = ? AND substr(created_at,1,10) = ?").bind(s.id, today).first(),
+      env.DB.prepare("SELECT SUM(status='sent') e, SUM(status='manual') m FROM applications WHERE subscriber_id = ? AND substr(created_at,1,10) >= ?").bind(s.id, d7).first(),
+      env.DB.prepare("SELECT COUNT(*) n FROM applications WHERE subscriber_id = ? AND status IN ('sent','manual','failed')").bind(s.id).first(),
+      env.DB.prepare("SELECT substr(created_at,1,10) d, SUM(status='sent') e, SUM(status='manual') m FROM applications WHERE subscriber_id = ? AND substr(created_at,1,10) >= ? GROUP BY d").bind(s.id, d14).all(),
+      env.DB.prepare("SELECT field, COUNT(*) n FROM applications WHERE subscriber_id = ? AND status IN ('sent','manual') GROUP BY field ORDER BY n DESC LIMIT 8").bind(s.id).all(),
+    ]);
+    const n = (x) => Number(x || 0);
+    return json({ todaySent: n(tod.e), todayManual: n(tod.m), weekSent: n(week.e), weekManual: n(week.m), matched: n(match.n),
+      daily: daily.results, fields: byField.results });
+  }
+
+  if (p === '/api/me/jobs' && m === 'GET') {
+    const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days')) || 30));
+    const r = await env.DB.prepare(
+      `SELECT a.id, a.score, a.field, a.method, a.status, a.created_at, a.sent_at, j.title, j.company, j.city, j.country, j.url, j.source,
+         EXISTS(SELECT 1 FROM tailored_pdfs t WHERE t.subscriber_id = a.subscriber_id AND t.field = a.field) has_pdf
+       FROM applications a JOIN jobs j ON j.id = a.job_id
+       WHERE a.subscriber_id = ? AND a.status IN ('sent','manual','failed') AND substr(a.created_at,1,10) >= ?
+       ORDER BY a.created_at DESC, a.score DESC LIMIT 500`
+    ).bind(s.id, addDays(todayStr(), -(days - 1))).all();
+    return json(r.results);
+  }
+
+  if (p === '/api/me/cvs' && m === 'GET') {
+    const r = await env.DB.prepare('SELECT field, size, updated_at FROM tailored_pdfs WHERE subscriber_id = ? ORDER BY field').bind(s.id).all();
+    return json(r.results);
+  }
+
+  const cm = p.match(/^\/api\/me\/cv\/(.+)$/);
+  if (cm && m === 'GET') {
+    const field = decodeURIComponent(cm[1]);
+    const f = await env.DB.prepare('SELECT data FROM tailored_pdfs WHERE subscriber_id = ? AND field = ?').bind(s.id, field).first();
+    if (!f) return err('not found', 404);
+    const name = `CV - ${s.name} - ${field}.pdf`.replace(/[\\/:*?"<>|]/g, '-');
+    return new Response(Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0)), { headers: { 'content-type': 'application/pdf', 'cache-control': 'no-store',
+      'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}` } });
+  }
+
+  if (p === '/api/me/app-password' && m === 'PUT') {
+    if (ro) return err('your subscription has ended — read only', 403);
+    const b = await body(req);
+    let ap = null;
+    if (!b.clear) {
+      const v = String(b.app_password || '').replace(/\s+/g, '');
+      if (!/^[a-zA-Z]{16}$/.test(v)) return err('an App Password is 16 letters (Google shows it in 4 groups of 4)');
+      ap = await encryptSecret(env, v);
+    }
+    await env.DB.prepare("UPDATE subscribers SET app_password_enc = ?, send_mode = ?, updated_at = datetime('now') WHERE id = ?")
+      .bind(ap, ap ? 'app_password' : 'central', s.id).run();
+    await audit(env, null, 'me_app_password', { id: s.id, set: !!ap });
+    return json({ ok: true, has_app_password: !!ap });
+  }
+
+  if (p === '/api/me/lang' && m === 'PUT') {
+    const l = (await body(req)).lang === 'ar' ? 'ar' : 'en';
+    await env.DB.prepare('UPDATE subscribers SET lang = ? WHERE id = ?').bind(l, s.id).run();
+    return json({ ok: true });
   }
 
   return err('not found', 404);
@@ -386,9 +522,13 @@ async function api(req, env, url) {
       env.DB.prepare(`UPDATE ${table} SET pw_hash = ?, pw_salt = ? WHERE id = ?`).bind(h.hash, h.salt, t.user_id),
       env.DB.prepare('DELETE FROM tokens WHERE token_hash = ?').bind(th),
       env.DB.prepare('DELETE FROM sessions WHERE kind = ? AND user_id = ?').bind(t.kind, t.user_id),
+      env.DB.prepare('DELETE FROM reset_requests WHERE subscriber_id = ? AND ? = \'sub\'').bind(t.user_id, t.kind),
     ]);
-    return json({ ok: true, kind: t.kind });
+    const slug = t.kind === 'sub' ? (await env.DB.prepare('SELECT slug FROM subscribers WHERE id = ?').bind(t.user_id).first())?.slug : undefined;
+    return json({ ok: true, kind: t.kind, slug });
   }
+
+  if (p.startsWith('/api/me/')) return meRoutes(req, env, url, p, m);
 
   // ---- everything below needs a staff session ----
   const me = await currentStaff(req, env);

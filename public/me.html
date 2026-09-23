@@ -47,14 +47,11 @@ code.k{background:rgba(0,0,0,.35);padding:2px 6px;border-radius:6px;font-size:12
     <div id="v-login" class="card hidden">
       <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
       <h1 data-t="welcome"></h1><p class="mute" style="margin:0" data-t="loginHint"></p>
+      <label data-t="email"></label><input id="l-email" type="email" autocomplete="username">
       <label data-t="password"></label><input id="l-pw" type="password" autocomplete="current-password">
       <button id="l-go" style="width:100%;margin-top:20px" data-t="signIn"></button>
       <div class="row" style="margin-top:10px;justify-content:center"><button class="ghost sm" id="l-forgot" data-t="forgot"></button></div>
       <div class="msg" id="l-msg"></div>
-    </div>
-    <div id="v-nolink" class="card hidden">
-      <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
-      <h1 data-t="noLinkTitle"></h1><p class="mute" data-t="noLinkText"></p>
     </div>
     <div id="v-setpw" class="card hidden">
       <div class="brand"><span class="logo" data-ic="logo"></span>Job Hunter</div>
@@ -144,7 +141,7 @@ code.k{background:rgba(0,0,0,.35);padding:2px 6px;border-radius:6px;font-size:12
 </div>
 
 <script>
-const T={en:{artTitle:"Your daily job hunt, on autopilot.",artText:"We collect jobs in your target cities every day, tailor your CV for each field and apply for you.",welcome:"Welcome back",loginHint:"Enter your password to open your dashboard.",password:"Password",signIn:"Sign in",forgot:"Forgot your password?",forgotDone:"Request sent. The team will send you a new link soon.",noLinkTitle:"Use your private link",noLinkText:"Open the personal link the team sent you (it ends with ?u=…). If you lost it, contact the team.",setPw:"Set your password",newPw:"New password (10+ characters)",confirmPw:"Confirm password",save:"Save",mismatch:"Passwords do not match",pwDone:"Password saved. Signing you in…",signOut:"Sign out",pages:"Pages",overview:"Overview",jobs:"My jobs",cvs:"My CVs",emailTab:"Sending email",subCard:"Subscription",subUntil:"Active until {d}",subEnded:"Ended on {d}",
+const T={en:{artTitle:"Your daily job hunt, on autopilot.",artText:"We collect jobs in your target cities every day, tailor your CV for each field and apply for you.",welcome:"Welcome back",loginHint:"Sign in with your email and password.",email:"Email",password:"Password",signIn:"Sign in",forgot:"Forgot your password?",forgotDone:"Request sent. The team will send a new password link to your email soon.",noLinkTitle:"Use your private link",noLinkText:"Open the personal link the team sent you (it ends with ?u=…). If you lost it, contact the team.",setPw:"Set your password",newPw:"New password (10+ characters)",confirmPw:"Confirm password",save:"Save",mismatch:"Passwords do not match",pwDone:"Password saved. Signing you in…",signOut:"Sign out",pages:"Pages",overview:"Overview",jobs:"My jobs",cvs:"My CVs",emailTab:"Sending email",subCard:"Subscription",subUntil:"Active until {d}",subEnded:"Ended on {d}",
 roNote:"Your subscription ended on {d}. The dashboard is read only — contact the team to renew.",lockedNote:"Your account is paused by the team. The dashboard is read only.",
 kToday:"Applied today",kWeek:"Applied this week",kAuto:"Auto-applied (week)",kMatch:"Matching jobs",hello:"Hello,",heroText:"We are hunting in {c} cities across {f} fields for you. Here is your progress.",heroBtn:"See my jobs",
 autoRate:"Auto-apply rate",autoRateHint:"This week's applications sent by email",sentCol:"Emailed",manualCol:"Apply yourself",mySearch:"My search",modeLive:"Live — applications are being sent",modeTest:"Starting soon — test mode",
@@ -160,7 +157,7 @@ st3:'If you see <b>“The setting you are looking for is not available for your 
 st4:'In <b>App name</b> type any name, for example <code class="k">Job Hunter</code>, then press <b>Create</b>.',
 st5:'Google shows a yellow box with 16 letters like <code class="k">abcd efgh ijkl mnop</code>. Copy it (it is shown only once).',
 st6:'Paste it below and press <b>Save</b>. Done — the next run sends from your Gmail.'},
-ar:{artTitle:"البحث عن شغل كل يوم… أوتوماتيك.",artText:"بنجمع الوظايف في المدن اللي تختارها كل يوم، ونعدّل السي في بتاعك لكل مجال، ونقدّم لك.",welcome:"أهلاً بيك",loginHint:"اكتب كلمة السر عشان تفتح الداشبورد بتاعتك.",password:"كلمة السر",signIn:"دخول",forgot:"نسيت كلمة السر؟",forgotDone:"اتبعت الطلب. الفريق هيبعتلك لينك جديد قريب.",noLinkTitle:"افتح اللينك الخاص بيك",noLinkText:"افتح اللينك الشخصي اللي الفريق بعتهولك (آخره ?u=…). لو ضاع منك، كلّم الفريق.",setPw:"تعيين كلمة السر",newPw:"كلمة سر جديدة (10 حروف أو أكتر)",confirmPw:"تأكيد كلمة السر",save:"حفظ",mismatch:"كلمتين السر مش زي بعض",pwDone:"اتحفظت. بندخّلك…",signOut:"خروج",pages:"الصفحات",overview:"نظرة عامة",jobs:"وظايفي",cvs:"نسخ السي في",emailTab:"إيميل الإرسال",subCard:"الاشتراك",subUntil:"ساري لحد {d}",subEnded:"انتهى يوم {d}",
+ar:{artTitle:"البحث عن شغل كل يوم… أوتوماتيك.",artText:"بنجمع الوظايف في المدن اللي تختارها كل يوم، ونعدّل السي في بتاعك لكل مجال، ونقدّم لك.",welcome:"أهلاً بيك",loginHint:"ادخل بالإيميل وكلمة السر بتوعك.",email:"الإيميل",password:"كلمة السر",signIn:"دخول",forgot:"نسيت كلمة السر؟",forgotDone:"اتبعت الطلب. الفريق هيبعتلك لينك كلمة سر جديد قريب.",noLinkTitle:"افتح اللينك الخاص بيك",noLinkText:"افتح اللينك الشخصي اللي الفريق بعتهولك (آخره ?u=…). لو ضاع منك، كلّم الفريق.",setPw:"تعيين كلمة السر",newPw:"كلمة سر جديدة (10 حروف أو أكتر)",confirmPw:"تأكيد كلمة السر",save:"حفظ",mismatch:"كلمتين السر مش زي بعض",pwDone:"اتحفظت. بندخّلك…",signOut:"خروج",pages:"الصفحات",overview:"نظرة عامة",jobs:"وظايفي",cvs:"نسخ السي في",emailTab:"إيميل الإرسال",subCard:"الاشتراك",subUntil:"ساري لحد {d}",subEnded:"انتهى يوم {d}",
 roNote:"اشتراكك انتهى يوم {d}. الداشبورد للقراءة بس — كلّم الفريق عشان تجدّد.",lockedNote:"حسابك متوقف مؤقتًا من الفريق. الداشبورد للقراءة بس.",
 kToday:"تقديمات النهارده",kWeek:"تقديمات الأسبوع",kAuto:"أوتوماتيك (الأسبوع)",kMatch:"وظايف مناسبة",hello:"أهلاً،",heroText:"بندوّر لك في {c} مدينة و{f} مجال. ده ملخص شغلك.",heroBtn:"شوف وظايفي",
 autoRate:"نسبة التقديم الأوتوماتيك",autoRateHint:"تقديمات الأسبوع اللي اتبعتت بالإيميل",sentCol:"اتبعت إيميل",manualCol:"قدّم بنفسك",mySearch:"البحث بتاعي",modeLive:"شغّال — التقديمات بتتبعت",modeTest:"هيبدأ قريب — وضع التجربة",
@@ -180,22 +177,21 @@ let lang=(()=>{try{return localStorage.getItem('lang')||'en'}catch{return'en'}})
 const $=id=>document.getElementById(id), t=k=>T[lang][k]||k;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function msg(id,text,ok){$(id).textContent=text;$(id).classList.toggle('ok',!!ok);}
-const SLUG=(()=>{const u=new URLSearchParams(location.search).get('u');try{if(u)localStorage.setItem('slug',u);return u||localStorage.getItem('slug')||''}catch{return u||''}})();
 function applyLang(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));document.querySelectorAll('[data-ph]').forEach(e=>e.placeholder=t(e.dataset.ph));
   $('langBtn').textContent=$('langBtn2').textContent=lang==='ar'?'English':'العربية';}
 $('langBtn').onclick=$('langBtn2').onclick=()=>{lang=lang==='ar'?'en':'ar';try{localStorage.setItem('lang',lang)}catch{}applyLang();if(ME){call('/api/me/lang',{method:'PUT',body:{lang}}).catch(()=>{});frame();tab(TAB)}};
 async function call(path,opt={}){const r=await fetch(path,{method:opt.method||'GET',headers:{'content-type':'application/json'},body:opt.body?JSON.stringify(opt.body):undefined,credentials:'same-origin'});
   let d={};try{d=await r.json()}catch{}if(!r.ok)throw Object.assign(new Error(d.error||r.status),{status:r.status});return d;}
-function show(v){['login','nolink','setpw','home'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));$('auth').classList.toggle('hidden',v==='home');}
+function show(v){['login','setpw','home'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));$('auth').classList.toggle('hidden',v==='home');}
 
-$('l-go').onclick=async()=>{try{await call('/api/me/login',{method:'POST',body:{slug:SLUG,password:$('l-pw').value}});boot()}catch(e){msg('l-msg',e.message)}};
+$('l-go').onclick=async()=>{try{await call('/api/me/login',{method:'POST',body:{email:$('l-email').value,password:$('l-pw').value}});boot()}catch(e){msg('l-msg',e.message)}};
 $('l-pw').onkeydown=e=>{if(e.key==='Enter')$('l-go').click()};
-$('l-forgot').onclick=async()=>{await call('/api/me/forgot',{method:'POST',body:{slug:SLUG}}).catch(()=>{});msg('l-msg',t('forgotDone'),true)};
+$('l-forgot').onclick=async()=>{try{await call('/api/me/forgot',{method:'POST',body:{email:$('l-email').value}});msg('l-msg',t('forgotDone'),true)}catch(e){msg('l-msg',e.message)}};
 $('p-go').onclick=async()=>{if($('p-pw').value!==$('p-pw2').value)return msg('p-msg',t('mismatch'));
   try{const d=await call('/api/set-password',{method:'POST',body:{token:location.hash.split('=')[1],password:$('p-pw').value}});msg('p-msg',t('pwDone'),true);
-    const pw=$('p-pw').value;history.replaceState(null,'',location.pathname+'?u='+encodeURIComponent(d.slug||SLUG));try{localStorage.setItem('slug',d.slug||SLUG)}catch{}
-    await call('/api/me/login',{method:'POST',body:{slug:d.slug||SLUG,password:pw}}).catch(()=>{});setTimeout(boot,600)}catch(e){msg('p-msg',e.message)}};
+    const pw=$('p-pw').value;history.replaceState(null,'',location.pathname);
+    await call('/api/me/login',{method:'POST',body:{slug:d.slug,password:pw}}).catch(()=>{});setTimeout(boot,600)}catch(e){msg('p-msg',e.message)}};
 $('out').onclick=async()=>{await call('/api/me/logout',{method:'POST'}).catch(()=>{});ME=null;boot()};
 
 const CO={AE:['United Arab Emirates','الإمارات'],EG:['Egypt','مصر'],SA:['Saudi Arabia','السعودية']};
@@ -298,7 +294,7 @@ $('ap-save').onclick=async()=>{const clear=$('ap-clear').checked;
 async function boot(){applyLang();paintIcons();
   if(location.hash.startsWith('#set-password=')){show('setpw');return}
   try{ME=await call('/api/me/info');let has=true;try{has=!!localStorage.getItem('lang')}catch{}if(ME.lang&&!has){lang=ME.lang;applyLang()}return home()}catch{}
-  ME=null;show(SLUG?'login':'nolink');document.title='Sign in';}
+  ME=null;show('login');document.title='Sign in';}
 boot();
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 </script>

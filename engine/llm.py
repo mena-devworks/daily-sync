@@ -10,11 +10,11 @@ class LLMError(Exception):
 
 
 class Gemini:
-    def __init__(self, max_calls=150, min_gap=4.5):
+    def __init__(self, max_calls=150, min_gap=6.5, max_wait=900):
         self.key = os.environ.get("GEMINI_API_KEY", "")
         if not self.key:
             raise LLMError("GEMINI_API_KEY missing")
-        self.max_calls, self.min_gap, self.calls, self.last = max_calls, min_gap, 0, 0.0
+        self.max_calls, self.min_gap, self.max_wait, self.calls, self.last, self.waited = max_calls, min_gap, max_wait, 0, 0.0, 0.0
         self.models = self._pick()
 
     def _pick(self):
@@ -38,8 +38,10 @@ class Gemini:
         if self.calls >= self.max_calls:
             raise LLMError("AI call budget for this run used up")
         last_err = None
-        for model in self.models:
+        for model in list(self.models):
             for attempt in range(3):
+                if self.waited > self.max_wait:
+                    raise LLMError(f"Gemini rate limit: waited {int(self.waited)}s this run ({last_err})")
                 wait = self.min_gap - (time.time() - self.last)
                 if wait > 0:
                     time.sleep(wait)
@@ -50,13 +52,24 @@ class Gemini:
                         "generationConfig": {"temperature": temperature, "responseMimeType": "application/json"},
                     })
                 except Exception as e:
-                    last_err = str(e); time.sleep(5); continue
-                if r.status_code == 429 or r.status_code >= 500:
-                    last_err = f"{model} {r.status_code}"; time.sleep(15 * (attempt + 1)); continue
+                    last_err = str(e)[:150]; self._sleep(5); continue
+                if r.status_code == 429:
+                    body = r.text
+                    last_err = f"{model} 429"
+                    if re.search(r"PerDay|per day|daily", body, re.I):  # daily quota gone: this model is done for today
+                        print(f"  AI: {model} daily quota used up -> next model", flush=True)
+                        self.drop(model); break
+                    m = re.search(r'"retryDelay":\s*"(\d+)', body)
+                    d = min(int(m.group(1)) + 1 if m else 20 * (attempt + 1), 65)
+                    print(f"  AI: {model} rate limited, waiting {d}s", flush=True)
+                    self._sleep(d); continue
+                if r.status_code >= 500:
+                    last_err = f"{model} {r.status_code}"; self._sleep(10 * (attempt + 1)); continue
                 if r.status_code != 200:
                     last_err = f"{model} {r.status_code} {r.text[:200]}"
-                    if r.status_code == 404 and len(self.models) > 1:
-                        self.models = [m for m in self.models if m != model]  # retired for this key: skip it from now on
+                    print(f"  AI: {last_err[:160]}", flush=True)
+                    if r.status_code in (403, 404):
+                        self.drop(model)  # retired / not allowed for this key
                     break
                 self.calls += 1
                 try:
@@ -65,6 +78,16 @@ class Gemini:
                 except Exception as e:
                     last_err = f"bad JSON from {model}: {e}"
         raise LLMError(last_err or "Gemini failed")
+
+    def _sleep(self, d):
+        self.waited += d
+        time.sleep(d)
+
+    def drop(self, model):
+        if len(self.models) > 1:
+            self.models = [m for m in self.models if m != model]
+        else:
+            raise LLMError(f"no Gemini model left for this key (last: {model})")
 
 
 def parse_json(text):

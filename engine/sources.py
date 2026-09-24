@@ -53,7 +53,7 @@ def excluded(text):
     return bool(EXCLUDE_TEXT.search(text or ""))
 
 
-def collect(field, country, city, hours_old=48, results=20, log=print):
+def collect(field, country, city, hours_old=48, results=40, log=print):
     """Return list of dicts ready for the jobs table."""
     from jobspy import scrape_jobs  # imported lazily so tests run without it
     cname, indeed_country = COUNTRY[country]

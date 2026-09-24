@@ -94,7 +94,7 @@ const FIELDS = ['Accounting & Finance', 'Banking', 'Sales', 'Marketing', 'Custom
   'Procurement', 'Real Estate', 'Graphic Design & Creative', 'Legal', 'Security', 'Driving & Delivery'];
 const SETTING_DEFAULTS = {
   daily_apply_limit: '20', central_daily_limit: '5', min_match_score: '60', email_cooldown_days: '14',
-  run_time_cloud: '07:00', default_sub_days: '30', auto_fields_count: '5', engine_live: '0',
+  run_time_cloud: '07:00', default_sub_days: '30', auto_fields_count: '5', engine_live: '0', min_auto_pct: '80',
 };
 const CV_TYPES = { pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', txt: 'text/plain' };
 const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(Date.parse(d));
@@ -546,8 +546,8 @@ async function api(req, env, url) {
     const [subs, active, appsToday, autoToday, lastRun] = await Promise.all([
       env.DB.prepare('SELECT COUNT(*) n FROM subscribers').first(),
       env.DB.prepare('SELECT COUNT(*) n FROM subscribers WHERE locked = 0 AND sub_end >= ?').bind(today).first(),
-      env.DB.prepare('SELECT COUNT(*) n FROM applications WHERE substr(created_at,1,10) = ?').bind(today).first(),
-      env.DB.prepare("SELECT COUNT(*) n FROM applications WHERE method='email' AND substr(created_at,1,10) = ?").bind(today).first(),
+      env.DB.prepare("SELECT COUNT(*) n FROM applications WHERE status IN ('sent','manual') AND substr(created_at,1,10) = ?").bind(today).first(),
+      env.DB.prepare("SELECT COUNT(*) n FROM applications WHERE status = 'sent' AND substr(created_at,1,10) = ?").bind(today).first(),
       env.DB.prepare('SELECT place, started_at, finished_at, status FROM runs ORDER BY id DESC LIMIT 1').first(),
     ]);
     const d14 = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10), d7 = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);

@@ -6,8 +6,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#070b24",
-  "theme_color": "#070b24",
+  "background_color": "#ffffff",
+  "theme_color": "#0b1130",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -26,11 +26,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
     }
   ],
   "id": "/me"

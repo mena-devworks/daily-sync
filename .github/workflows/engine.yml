@@ -30,6 +30,11 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
+      - name: Password reset links
+        env:
+          CENTRAL_EMAIL: ${{ secrets.CENTRAL_EMAIL }}
+          CENTRAL_APP_PASSWORD: ${{ secrets.CENTRAL_APP_PASSWORD }}
+        run: python3 engine/resets.py
       - name: Is a run due?
         id: gate
         run: |

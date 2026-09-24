@@ -8,11 +8,11 @@ from datetime import datetime, timedelta, timezone
 
 from .db import D1
 from .llm import Gemini, LLMError
-from . import sources, cv as cvmod, secrets_box
+from . import sources, cv as cvmod, secrets_box, emailfind
 from .mailer import Mailer, compose
 
 DEFAULTS = {"daily_apply_limit": "20", "central_daily_limit": "5", "min_match_score": "60", "email_cooldown_days": "14",
-            "auto_fields_count": "5", "engine_live": "0"}
+            "auto_fields_count": "5", "engine_live": "0", "min_auto_pct": "80"}
 FIELDS = list(sources.QUERY)
 BACKLOG_DAYS, MAX_COMBOS, SCORE_BATCH, MAX_CANDIDATES, WORKERS = 7, 60, 12, 60, 4
 OUT = os.environ.get("ENGINE_OUT", "out")
@@ -37,9 +37,11 @@ class Engine:
         self.dry = dry or self.s.get("engine_live") != "1"
         self.place, self.only_sub = place, only_sub
         self.stats = {"dry_run": self.dry, "combos": 0, "jobs_new": 0, "subscribers": 0, "sent": 0, "manual": 0,
-                      "low_score": 0, "filtered": 0, "failed": 0, "errors": [], "preview": []}
+                      "low_score": 0, "filtered": 0, "failed": 0, "held": 0, "errors": [], "preview": []}
         self.llm = None
         self.mailer = Mailer()
+        self.finder = None
+        self.db.q("CREATE TABLE IF NOT EXISTS company_contacts (ckey TEXT PRIMARY KEY, site TEXT, email TEXT, checked_at TEXT)")
 
     # ---------- helpers ----------
     def err(self, msg):
@@ -111,6 +113,15 @@ class Engine:
                     self.db.q(f"INSERT OR IGNORE INTO jobs ({','.join(cols)}) VALUES " + ",".join(["(" + ",".join("?" * len(cols)) + ")"] * len(chunk)),
                               *[r[c] for r in chunk for c in cols])
                 self.stats["jobs_new"] += self.db.one("SELECT COUNT(*) n FROM jobs")["n"] - before
+                hints = {}
+                for r in rows:
+                    site = next((x for x in map(emailfind.company_site, r.get("_hints") or []) if x), None)
+                    if site and r["company"]:
+                        hints[company_key(r["company"], country)] = site
+                items = list(hints.items())
+                for i in range(0, len(items), 40):
+                    chunk = items[i:i + 40]
+                    self.db.q("INSERT OR IGNORE INTO company_contacts (ckey, site) VALUES " + ",".join(["(?,?)"] * len(chunk)), *[v for kv in chunk for v in kv])
                 self.progress(f"collect {done}/{len(todo)}")
 
     # ---------- CV ----------
@@ -205,7 +216,11 @@ class Engine:
         today = utc()[:10]
         sent_today = self.db.one("SELECT COUNT(*) n FROM applications WHERE subscriber_id = ? AND method = 'email' AND status = 'sent' AND substr(sent_at,1,10) = ?", sub["id"], today)["n"]
         central_today = self.db.one("SELECT COUNT(*) n FROM applications WHERE subscriber_id = ? AND method = 'email' AND status = 'sent' AND recipient LIKE '%[central]' AND substr(sent_at,1,10) = ?", sub["id"], today)["n"]
-        daily, central_cap = int(self.s["daily_apply_limit"]), int(self.s["central_daily_limit"])
+        total, central_cap = int(self.s["daily_apply_limit"]), int(self.s["central_daily_limit"])
+        # daily_apply_limit = applications per subscriber per day (auto + manual); min_auto_pct of them go by email
+        pct = max(0, min(100, int(self.s.get("min_auto_pct") or 0)))
+        daily = max(1, round(total * pct / 100)) if pct else total
+        manual_cap = total - daily if pct else None
         cooldown_since = utc(days=-int(self.s["email_cooldown_days"]))
         app_pw = None
         if sub.get("app_password_enc"):
@@ -224,7 +239,7 @@ class Engine:
             keep.append(j)
         scores = self.score(base, keep)
         min_score = int(self.s["min_match_score"])
-        cache, sent_to = {}, set()
+        cache, sent_to, manual_q = {}, set(), []
         for j in sorted(keep, key=lambda j: -scores.get(j["id"], (0, ""))[0]):
             sc, pitch = scores.get(j["id"], (None, ""))
             if sc is None:
@@ -237,6 +252,13 @@ class Engine:
             except cvmod.CVNotReady as e:
                 self.err(f"#{sub['id']} {j['field']}: {e}"); continue
             to = j["apply_email"]
+            checked = False  # did we look for an email for this job today?
+            if not to and sent_today < daily and (app_pw or central_today < central_cap):
+                checked = True
+                try:
+                    to = self.find_email(j)
+                except Exception as e:
+                    log(f"  ! email finder {j['company']}: {type(e).__name__}: {e}")
             if to and (to in sent_to or sources.BAD_EMAIL.search(to)):
                 to = None  # one email per HR mailbox per run; re-check filters on stored jobs
             can_central = central_today < central_cap
@@ -257,13 +279,51 @@ class Engine:
                 except Exception as e:
                     self.err(f"#{sub['id']} send to {to}: {e}")
                     self.record(sub, j, sc, "email", to, "failed")
+            elif to and sent_today >= daily:
+                continue  # has an email but today's email quota is used -> stays a candidate for tomorrow
             else:
+                manual_q.append((j, sc, checked))
+        # the rest of the day's quota (about 20%) is the best "apply yourself" jobs; extra ones are held (not shown)
+        allowed = len(manual_q)
+        if manual_cap is not None:
+            manual_today = self.db.one("SELECT COUNT(*) n FROM applications WHERE subscriber_id = ? AND status = 'manual' AND substr(created_at,1,10) = ?", sub["id"], today)["n"]
+            allowed = max(0, manual_cap - manual_today)
+        for i, (j, sc, checked) in enumerate(manual_q):
+            if i >= allowed and not checked:
+                continue  # never checked for an email (quota full) -> try again next run
+            if i < allowed:
                 if self.dry:
-                    self.preview(sub, j, sc, "manual", None, None, None); continue
-                self.record(sub, j, sc, "manual", None, "manual")
+                    self.preview(sub, j, sc, "manual", None, None, None)
+                else:
+                    self.record(sub, j, sc, "manual", None, "manual")
+            else:
+                self.record(sub, j, sc, "manual", None, "held")
+        if manual_q:
+            log(f"  email today: {sent_today}/{daily} | manual listed: {min(allowed, len(manual_q))}, not listed: {max(0, len(manual_q) - allowed)}")
+
+    def find_email(self, j):
+        """Published email from the company's own website (cached a month per company). Never guessed."""
+        if not j["company"]:
+            return None
+        key = company_key(j["company"], j["country"])
+        row = self.db.one("SELECT site, email, checked_at FROM company_contacts WHERE ckey = ?", key)
+        if row and row["checked_at"] and row["checked_at"] >= utc(days=-30):
+            return row["email"] or None
+        if self.finder is None:
+            self.finder = emailfind.Finder(log=log)
+        site, email = self.finder.find(j["company"], j["city"], [row["site"]] if row and row["site"] else [])
+        if site is None and email is None and self.finder.left <= 0:
+            return None  # budget used up: try again next run, do not cache a miss
+        self.db.q("INSERT INTO company_contacts (ckey, site, email, checked_at) VALUES (?,?,?,?) ON CONFLICT(ckey) DO UPDATE SET "
+                  "site = COALESCE(excluded.site, company_contacts.site), email = excluded.email, checked_at = excluded.checked_at",
+                  key, site, email, utc())
+        if email:
+            log(f"  + email from {site}: {email} ({j['company']})")
+            self.db.q("UPDATE jobs SET apply_email = ? WHERE apply_email IS NULL AND company = ? AND country = ?", email, j["company"], j["country"])
+        return email
 
     def record(self, sub, j, score, method, recipient, status, sent=False):
-        self.stats[{"sent": "sent", "manual": "manual", "low_score": "low_score", "filtered": "filtered"}.get(status, "failed")] += 1
+        self.stats[{"sent": "sent", "manual": "manual", "low_score": "low_score", "filtered": "filtered", "held": "held"}.get(status, "failed")] += 1
         if self.dry:
             return
         self.db.q("INSERT OR IGNORE INTO applications (subscriber_id, job_id, score, field, method, recipient, status, sent_at) VALUES (?,?,?,?,?,?,?,?)",
@@ -309,6 +369,8 @@ class Engine:
             self.mailer.close()
             if self.llm:
                 self.stats["ai_calls"] = self.llm.calls
+            if self.finder:
+                self.stats["email_finder"] = self.finder.stats
             sj = json.dumps(self.stats, ensure_ascii=False)
             if len(sj) > 90000:  # keep valid JSON: trim the preview instead of cutting the string
                 sj = json.dumps({**self.stats, "preview": self.stats["preview"][:5], "errors": self.stats["errors"][:50]}, ensure_ascii=False)
@@ -317,6 +379,10 @@ class Engine:
             json.dump(self.stats, open(os.path.join(OUT, "stats.json"), "w"), ensure_ascii=False, indent=1)
             log("\nSummary:", json.dumps({k: v for k, v in self.stats.items() if k != "preview"}, ensure_ascii=False))
         return status
+
+
+def company_key(company, country):
+    return re.sub(r"[^a-z0-9]+", " ", (company or "").lower()).strip() + "|" + (country or "")
 
 
 def hours_ago(h):

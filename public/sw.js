@@ -1,5 +1,5 @@
 // Job Hunter service worker: app shell offline, never caches the API (always live data).
-const V = 'jh-v3', SHELL = ['/', '/me', '/app.css', '/theme.js', '/icon.svg', '/icon-192.png', '/manifest.webmanifest'];
+const V = 'jh-v4', SHELL = ['/', '/me', '/app.css', '/theme.js', '/icon.svg', '/icon-192.png', '/manifest.webmanifest'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((k) => Promise.all(k.filter((x) => x !== V).map((x) => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {

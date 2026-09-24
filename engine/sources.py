@@ -37,7 +37,8 @@ def fingerprint(title, company, city):
 
 
 def pick_email(text, company=""):
-    for e in EMAIL_RE.findall(text or ""):
+    from .emailfind import deobfuscate  # "hr [at] acme [dot] com" style addresses too
+    for e in EMAIL_RE.findall(deobfuscate(text)):
         e = e.strip(".").lower()
         if BAD_EMAIL.search(e) or len(e) > 80:
             continue
@@ -77,6 +78,7 @@ def collect(field, country, city, hours_old=48, results=20, log=print):
                 "country": country, "city": city, "field": field, "url": g("job_url_direct") or g("job_url"),
                 "apply_email": pick_email(email_text + " " + desc), "source": site,
                 "description": desc[:6000], "posted_at": str(g("date_posted") or "")[:10] or None,
+                "_hints": [u for u in (g("company_url_direct"), g("job_url_direct")) if u],  # company website, if known
             })
         log(f"  {site} {field} / {city}: {len(df)}")
     return out

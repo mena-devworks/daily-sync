@@ -238,6 +238,10 @@ class Engine:
             seen.add(key)
             keep.append(j)
         scores = self.score(base, keep)
+        try:
+            self.site_hints([j for j in keep if scores.get(j["id"], (0, ""))[0] >= int(self.s["min_match_score"])])
+        except Exception as e:
+            log(f"  ! site hints: {type(e).__name__}: {e}")
         min_score = int(self.s["min_match_score"])
         cache, sent_to, manual_q = {}, set(), []
         for j in sorted(keep, key=lambda j: -scores.get(j["id"], (0, ""))[0]):
@@ -301,14 +305,43 @@ class Engine:
         if manual_q:
             log(f"  email today: {sent_today}/{daily} | manual listed: {min(allowed, len(manual_q))}, not listed: {max(0, len(manual_q) - allowed)}")
 
+    def site_hints(self, jobs):
+        """One AI call: official website of the companies that have no email yet (only ones it is sure about).
+        The website is then checked by crawling it; an email is used only if the company publishes it there."""
+        comps = {}
+        for j in jobs:
+            if not j["apply_email"] and j["company"]:
+                comps.setdefault(company_key(j["company"], j["country"]), j)
+        if not comps:
+            return
+        keys = list(comps)
+        known = {r["ckey"] for r in self.db.q(f"SELECT ckey FROM company_contacts WHERE site IS NOT NULL AND ckey IN ({','.join('?' * len(keys))})", *keys)}
+        todo = [comps[k] for k in keys if k not in known][:40]
+        if not todo:
+            return
+        lines = "\n".join(f"{i + 1}. {j['company']} - {j['city']}, {j['country']}" for i, j in enumerate(todo))
+        ans = self.ai().json(
+            "Companies from job ads in the UAE, Egypt and Saudi Arabia. For each one give its official website domain "
+            "(for example \"acme.ae\") ONLY if you are sure it is exactly this company; otherwise null. Never guess.\n"
+            "Return a JSON object: {\"1\": \"domain or null\", ...}\n\n" + lines, temperature=0)
+        added = 0
+        for i, j in enumerate(todo):
+            dom = (ans or {}).get(str(i + 1)) if isinstance(ans, dict) else None
+            site = emailfind.company_site("https://" + re.sub(r"^https?://", "", dom.strip().lower()).split("/")[0]) if isinstance(dom, str) and "." in dom else None
+            if site and emailfind.looks_like(j["company"], site):
+                self.db.q("INSERT INTO company_contacts (ckey, site) VALUES (?, ?) ON CONFLICT(ckey) DO UPDATE SET site = excluded.site, checked_at = NULL",
+                          company_key(j["company"], j["country"]), site)
+                added += 1
+        log(f"  website hints: {added}/{len(todo)} companies")
+
     def find_email(self, j):
         """Published email from the company's own website (cached a month per company). Never guessed."""
         if not j["company"]:
             return None
         key = company_key(j["company"], j["country"])
         row = self.db.one("SELECT site, email, checked_at FROM company_contacts WHERE ckey = ?", key)
-        if row and row["checked_at"] and row["checked_at"] >= utc(days=-30):
-            return row["email"] or None
+        if row and row["checked_at"] and row["checked_at"] >= utc(days=-30) and (row["email"] or row["site"]):
+            return row["email"] or None  # website already checked this month
         if self.finder is None:
             self.finder = emailfind.Finder(log=log)
         site, email = self.finder.find(j["company"], j["city"], [row["site"]] if row and row["site"] else [])

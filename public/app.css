@@ -191,3 +191,9 @@ button.thm{display:inline-grid;place-items:center;width:34px;height:32px;padding
 button.thm svg{width:17px;height:17px}
 .auth-top{display:flex;gap:8px}
 :root[data-theme=light] .auth-side .card{box-shadow:0 24px 60px -30px var(--shadow)}
+/* ---------- brand logo (JH mark) ---------- */
+.logo[data-ic=logo]{background:#fff url(/icon-192.png) center/112% no-repeat!important;box-shadow:0 6px 18px -8px rgba(0,117,255,.55)!important;border:1px solid rgba(22,32,72,.06)}
+.logo[data-ic=logo] svg{display:none}
+.brand{text-transform:none;letter-spacing:.2px;font-size:17px}
+.brand .wm{font-weight:800;color:var(--strong)}.brand .wm b{font-weight:800;color:#1a7dff}
+.auth-art .brand .wm{color:#fff}

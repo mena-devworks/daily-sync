@@ -134,17 +134,18 @@ class Finder:
 
     def search(self, company, city):
         """Company website from a free web search (DuckDuckGo HTML, then Bing). Only name-matching domains."""
-        if self.search_fails >= 4:
+        if self.search_fails >= 3:
             return []
         q = f"{company} {city} official website"
         out = []
         for url, pat in (("https://html.duckduckgo.com/html/?q=", r'class="result__a"[^>]*href="([^"]+)"'),
+                         ("https://lite.duckduckgo.com/lite/?q=", r'class=.result-link.[^>]*href="([^"]+)"|<a rel="nofollow" href="([^"]+)"'),
                          ("https://www.bing.com/search?setlang=en&q=", r'<li class="b_algo".*?<a[^>]+href="(https?://[^"]+)"')):
             page, _ = self._get(url + requests.utils.quote(q))
             if not page:
                 continue
             for href in re.findall(pat, page, re.S)[:8]:
-                href = html.unescape(href)
+                href = html.unescape(next((h for h in href if h), "") if isinstance(href, tuple) else href)
                 if "uddg=" in href:
                     href = unquote(parse_qs(urlparse(href).query).get("uddg", [""])[0])
                 site = company_site(href)

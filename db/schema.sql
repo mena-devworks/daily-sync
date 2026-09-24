@@ -134,6 +134,8 @@ CREATE TABLE IF NOT EXISTS tailored_pdfs (
 );
 
 -- v4 (phase 4): subscriber "forgot password" requests, shown to staff until a new link is generated
+CREATE TABLE IF NOT EXISTS company_contacts (ckey TEXT PRIMARY KEY, site TEXT, email TEXT, checked_at TEXT);
+
 CREATE TABLE IF NOT EXISTS reset_requests (
   subscriber_id INTEGER PRIMARY KEY REFERENCES subscribers(id) ON DELETE CASCADE,
   at TEXT NOT NULL DEFAULT (datetime('now'))

@@ -14,7 +14,7 @@ from .mailer import Mailer, compose
 DEFAULTS = {"daily_apply_limit": "20", "central_daily_limit": "5", "min_match_score": "60", "email_cooldown_days": "14",
             "auto_fields_count": "5", "engine_live": "0", "min_auto_pct": "80"}
 FIELDS = list(sources.QUERY)
-BACKLOG_DAYS, MAX_COMBOS, SCORE_BATCH, MAX_CANDIDATES, MAX_EMAIL_CANDIDATES, WORKERS = 7, 60, 12, 60, 150, 4
+BACKLOG_DAYS, MAX_COMBOS, SCORE_BATCH, MAX_CANDIDATES, MAX_EMAIL_CANDIDATES, WORKERS = 14, 60, 12, 100, 150, 4
 OUT = os.environ.get("ENGINE_OUT", "out")
 
 
@@ -90,7 +90,7 @@ class Engine:
     def collect(self, subs):
         combos = sorted({(f, c["country"], c["city"]) for s in subs for f in s["fields"] for c in s["cities"]})
         recent = {(r["field"], r["country"], r["city"]) for r in self.db.q(
-            "SELECT DISTINCT field, country, city FROM jobs WHERE fetched_at >= ? AND source IN ('linkedin', 'indeed')", cairo_midnight_utc())}
+            "SELECT DISTINCT field, country, city FROM jobs WHERE fetched_at >= ? AND source IN ('linkedin', 'indeed', 'google')", cairo_midnight_utc())}
         todo = [c for c in combos if c not in recent][:MAX_COMBOS]
         log(f"Collect: {len(combos)} field x city combos, {len(todo)} to fetch")
         self.stats["combos"] = len(todo)

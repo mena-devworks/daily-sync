@@ -8,13 +8,13 @@ from datetime import datetime, timedelta, timezone
 
 from .db import D1
 from .llm import Gemini, LLMError
-from . import sources, cv as cvmod, secrets_box, emailfind
+from . import sources, cv as cvmod, secrets_box, emailfind, alerts
 from .mailer import Mailer, compose
 
 DEFAULTS = {"daily_apply_limit": "20", "central_daily_limit": "5", "min_match_score": "60", "email_cooldown_days": "14",
             "auto_fields_count": "5", "engine_live": "0", "min_auto_pct": "80"}
 FIELDS = list(sources.QUERY)
-BACKLOG_DAYS, MAX_COMBOS, SCORE_BATCH, MAX_CANDIDATES, WORKERS = 7, 60, 12, 60, 4
+BACKLOG_DAYS, MAX_COMBOS, SCORE_BATCH, MAX_CANDIDATES, MAX_EMAIL_CANDIDATES, WORKERS = 7, 60, 12, 60, 150, 4
 OUT = os.environ.get("ENGINE_OUT", "out")
 
 
@@ -90,11 +90,10 @@ class Engine:
     def collect(self, subs):
         combos = sorted({(f, c["country"], c["city"]) for s in subs for f in s["fields"] for c in s["cities"]})
         recent = {(r["field"], r["country"], r["city"]) for r in self.db.q(
-            "SELECT DISTINCT field, country, city FROM jobs WHERE fetched_at >= ?", utc(hours_ago(20)))}
+            "SELECT DISTINCT field, country, city FROM jobs WHERE fetched_at >= ? AND source IN ('linkedin', 'indeed')", cairo_midnight_utc())}
         todo = [c for c in combos if c not in recent][:MAX_COMBOS]
         log(f"Collect: {len(combos)} field x city combos, {len(todo)} to fetch")
         self.stats["combos"] = len(todo)
-        cols = ["fp", "title", "company", "country", "city", "field", "url", "apply_email", "source", "description", "posted_at"]
         def fetch(c):
             try:
                 return c, sources.collect(*c, log=log)
@@ -107,12 +106,7 @@ class Engine:
                 done += 1
                 if isinstance(rows, Exception):
                     self.err(f"collect {field}/{city}: {rows}"); continue
-                before = self.db.one("SELECT COUNT(*) n FROM jobs")["n"]
-                for i in range(0, len(rows), 9):  # D1 allows 100 bound params per statement
-                    chunk = rows[i:i + 9]
-                    self.db.q(f"INSERT OR IGNORE INTO jobs ({','.join(cols)}) VALUES " + ",".join(["(" + ",".join("?" * len(cols)) + ")"] * len(chunk)),
-                              *[r[c] for r in chunk for c in cols])
-                self.stats["jobs_new"] += self.db.one("SELECT COUNT(*) n FROM jobs")["n"] - before
+                self.store(rows)
                 hints = {}
                 for r in rows:
                     site = next((x for x in map(emailfind.company_site, r.get("_hints") or []) if x), None)
@@ -123,6 +117,26 @@ class Engine:
                     chunk = items[i:i + 40]
                     self.db.q("INSERT OR IGNORE INTO company_contacts (ckey, site) VALUES " + ",".join(["(?,?)"] * len(chunk)), *[v for kv in chunk for v in kv])
                 self.progress(f"collect {done}/{len(todo)}")
+        # job-alert emails on the central mailbox (Bayt, Naukrigulf, GulfTalent, Dubizzle, Wuzzuf, Tanqeeb)
+        try:
+            rows, st = alerts.collect(dry=True, log=log,  # dry = no Gmail label until the per-site parsers are checked on real alerts (7-day window + fp dedupe)
+                                      wanted_fields={c[0] for c in combos})
+            wanted = {(c[1], c[2]) for c in combos}  # only cities someone targets
+            rows = [r for r in rows if (r["country"], r["city"]) in wanted]
+            st["kept"] = len(rows)
+            self.stats["alerts"] = st
+            self.store(rows)
+        except Exception as e:
+            self.err(f"alerts: {type(e).__name__}: {e}")
+
+    def store(self, rows):
+        cols = ["fp", "title", "company", "country", "city", "field", "url", "apply_email", "source", "description", "posted_at"]
+        before = self.db.one("SELECT COUNT(*) n FROM jobs")["n"]
+        for i in range(0, len(rows), 9):  # D1 allows 100 bound params per statement
+            chunk = rows[i:i + 9]
+            self.db.q(f"INSERT OR IGNORE INTO jobs ({','.join(cols)}) VALUES " + ",".join(["(" + ",".join("?" * len(cols)) + ")"] * len(chunk)),
+                      *[r[c] for r in chunk for c in cols])
+        self.stats["jobs_new"] += self.db.one("SELECT COUNT(*) n FROM jobs")["n"] - before
 
     # ---------- CV ----------
     def base_profile(self, sub):
@@ -204,13 +218,14 @@ class Engine:
         base = self.base_profile(sub)
         allowed_nums = cvmod.allowed_numbers(sub["cv_text"])
         since = utc(days=-BACKLOG_DAYS)
-        jobs = self.db.q(
-            """SELECT j.* FROM jobs j
+        sql = """SELECT j.* FROM jobs j
                JOIN subscriber_fields f ON f.subscriber_id = ?1 AND f.enabled = 1 AND f.field = j.field
                JOIN subscriber_cities c ON c.subscriber_id = ?1 AND c.enabled = 1 AND c.country = j.country AND c.city = j.city
-               WHERE j.fetched_at >= ?2 AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.subscriber_id = ?1 AND a.job_id = j.id)
-               ORDER BY (j.apply_email IS NOT NULL) DESC, j.fetched_at DESC LIMIT ?3""", sub["id"], since, MAX_CANDIDATES)
-        log(f"  candidates: {len(jobs)}")
+               WHERE j.fetched_at >= ?2 AND j.apply_email IS {} NULL
+               AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.subscriber_id = ?1 AND a.job_id = j.id)
+               ORDER BY j.fetched_at DESC LIMIT ?3"""
+        jobs = self.db.q(sql.format("NOT"), sub["id"], since, MAX_EMAIL_CANDIDATES) + self.db.q(sql.format(""), sub["id"], since, MAX_CANDIDATES)
+        log(f"  candidates: {len(jobs)} ({sum(1 for j in jobs if j['apply_email'])} with an HR email)")
         if not jobs:
             return
         today = utc()[:10]
@@ -232,7 +247,7 @@ class Engine:
         keep, seen = [], set()
         for j in jobs:
             key = (sources.fingerprint(j["title"], j["company"], ""),)
-            if sources.excluded(j["title"] + " " + (j["description"] or "")) or key in seen:
+            if sources.excluded(j["title"] + " " + (j["description"] or "")) or key in seen or off_field(j["title"], sub["fields"]):
                 self.record(sub, j, None, "manual", None, "filtered")
                 continue
             seen.add(key)
@@ -414,8 +429,31 @@ class Engine:
         return status
 
 
+def off_field(title, fields):
+    """True when the title clearly belongs to fields the subscriber did not pick ("Senior Chemist" from a hotel search)."""
+    hits = {f for f, rx in alerts.FIELD_RE if rx.search(title or "")}
+    near = set(fields).union(*(RELATED.get(f, ()) for f in fields))
+    return bool(hits) and not hits & near
+
+
+RELATED = {  # a hotel candidate also fits front desk / F&B, etc. -- only clearly other fields are skipped
+    "Hospitality & Hotels": {"Reception & Front Office", "Food & Beverage", "Customer Service", "Tourism & Travel"},
+    "Customer Service": {"Reception & Front Office", "Sales", "Administration & Secretarial"},
+    "Tourism & Travel": {"Reception & Front Office", "Sales", "Customer Service", "Hospitality & Hotels"},
+    "Logistics & Supply Chain": {"Driving & Delivery", "Procurement", "Administration & Secretarial"},
+    "Driving & Delivery": {"Logistics & Supply Chain"},
+    "Reception & Front Office": {"Hospitality & Hotels", "Customer Service", "Administration & Secretarial"},
+}
+
+
 def company_key(company, country):
     return re.sub(r"[^a-z0-9]+", " ", (company or "").lower()).strip() + "|" + (country or "")
+
+
+def cairo_midnight_utc():
+    from zoneinfo import ZoneInfo
+    now = datetime.now(ZoneInfo("Africa/Cairo"))
+    return utc(now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc))
 
 
 def hours_ago(h):

@@ -1,4 +1,4 @@
-"""Job sources. v1: LinkedIn + Indeed through JobSpy (one search per field x city)."""
+"""Job sources: LinkedIn + Indeed + Google Jobs through JobSpy (one search per field x city)."""
 import hashlib, re
 
 COUNTRY = {  # code -> (display name, JobSpy country_indeed)
@@ -53,14 +53,20 @@ def excluded(text):
     return bool(EXCLUDE_TEXT.search(text or ""))
 
 
+SITES = ("linkedin", "indeed", "google")
+
+
 def collect(field, country, city, hours_old=48, results=40, log=print):
     """Return list of dicts ready for the jobs table."""
     from jobspy import scrape_jobs  # imported lazily so tests run without it
     cname, indeed_country = COUNTRY[country]
     out = []
-    for site in ("linkedin", "indeed"):
+    q = QUERY.get(field, field)
+    for site in SITES:
+        n0 = len(out)
         try:
-            df = scrape_jobs(site_name=[site], search_term=QUERY.get(field, field), location=f"{city}, {cname}",
+            df = scrape_jobs(site_name=[site], search_term=q, location=f"{city}, {cname}",
+                             google_search_term=f"{q} jobs in {city}, {cname} since yesterday",  # Google Jobs: ads often carry the HR email
                              results_wanted=results, hours_old=hours_old, country_indeed=indeed_country,
                              linkedin_fetch_description=True, description_format="markdown", verbose=0)
         except Exception as e:
@@ -80,5 +86,5 @@ def collect(field, country, city, hours_old=48, results=40, log=print):
                 "description": desc[:6000], "posted_at": str(g("date_posted") or "")[:10] or None,
                 "_hints": [u for u in (g("company_url_direct"), g("job_url_direct")) if u],  # company website, if known
             })
-        log(f"  {site} {field} / {city}: {len(df)}")
+        log(f"  {site} {field} / {city}: {len(df)} ({sum(1 for r in out[n0:] if r['apply_email'])} with email)")
     return out

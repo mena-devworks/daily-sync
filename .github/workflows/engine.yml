@@ -16,6 +16,10 @@ on:
         description: 'Only test the central mailbox (sends one email to itself)'
         type: boolean
         default: false
+      report:
+        description: 'Only print the apply-sites report (sends nothing)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -54,6 +58,7 @@ jobs:
           SETUP_CODE: ${{ secrets.SETUP_CODE }}
         run: |
           if [ "${{ inputs.mail_test }}" = "true" ]; then python -m engine.mailtest; exit $?; fi
+          if [ "${{ inputs.report }}" = "true" ]; then python -m engine.report; exit $?; fi
           ARGS=""
           if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
           if [ -n "${{ inputs.subscriber }}" ]; then ARGS="$ARGS --subscriber ${{ inputs.subscriber }}"; fi

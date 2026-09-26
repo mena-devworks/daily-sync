@@ -3,7 +3,7 @@
 Once a day: companies with good jobs but no HR email -> web search for the company's own site -> email it publishes
 -> saved to D1 (jobs.apply_email + company_contacts) -> asks the cloud engine to run, which sends the applications.
 Setup: a .env file next to this repo with CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (D1 edit).
-Run:   python -m engine.device          (add --force to run again the same day)
+Run:   python -m engine.device   (Task Scheduler every 15 min; --force runs now)
 """
 import os, sys, time
 from datetime import datetime, timezone
@@ -34,13 +34,30 @@ def ckey(company, country):
     return re.sub(r"[^a-z0-9]+", " ", (company or "").lower()).strip() + "|" + (country or "")
 
 
+DAILY_HOUR = 12  # PC local time (Cairo): daily run at noon, or at the first check after the PC is switched on
+
+
 def main():
     db = D1()
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    last = (db.one("SELECT value FROM settings WHERE key = 'device_last_run'") or {}).get("value") or ""
-    if last[:10] == today and "--force" not in sys.argv:
-        log("already ran today"); return
+    s = {r["key"]: r["value"] for r in db.q("SELECT key, value FROM settings WHERE key LIKE 'device_%'")}
+    local = datetime.now()  # Windows clock = Cairo time
+    today = local.strftime("%Y-%m-%d")
+    requested = (s.get("device_run_requested") or "") > (s.get("device_last_run") or "")  # "Run on device" in the dashboard
+    daily = local.hour >= DAILY_HOUR and s.get("device_last_day") != today
+    if not (requested or daily or "--force" in sys.argv):
+        return  # checked every 15 minutes by Windows Task Scheduler: nothing to do
     db.set_setting("device_last_run", now())
+    if daily:
+        db.set_setting("device_last_day", today)
+    db.set_setting("device_last_result", "running…")
+    try:
+        work(db)
+    except Exception as e:
+        db.set_setting("device_last_result", f"error: {type(e).__name__}: {str(e)[:200]}")
+        raise
+
+
+def work(db):
     # companies whose matching jobs have no email yet and were not rejected (not scored yet, or held for lack of email)
     rows = db.q(f"""
         SELECT j.company, j.country, MIN(j.city) city, COUNT(*) n
@@ -76,6 +93,7 @@ def main():
             db.q("DELETE FROM applications WHERE status = 'held' AND job_id IN (SELECT id FROM jobs WHERE company = ? AND country = ?)",
                  r["company"], r["country"])
     log(f"companies: {len(rows)} | looked up: {checked} | emails: {found} | search {finder.stats}")
+    db.set_setting("device_last_result", f"{found} emails / {checked} companies checked")
     if found:
         db.set_setting("run_requested", now())  # the cloud engine picks this up within 15 minutes
         log("cloud engine asked to run")

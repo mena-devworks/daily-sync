@@ -573,10 +573,18 @@ async function api(req, env, url) {
     await audit(env, me.id, 'run_now', now);
     return json({ ok: true, requested_at: now });
   }
+  // "Run on device": the owner's PC checks every 15 minutes and runs when this is newer than its last run
+  if (p === '/api/device-run' && m === 'POST') {
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('device_run_requested', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(now).run();
+    await audit(env, me.id, 'device_run', now);
+    return json({ ok: true, requested_at: now });
+  }
   if (p === '/api/runs' && m === 'GET') {
     const r = await env.DB.prepare('SELECT id, place, started_at, finished_at, status, stats_json FROM runs ORDER BY id DESC LIMIT 10').all();
     const req = await env.DB.prepare("SELECT value FROM settings WHERE key = 'run_requested'").first();
-    return json({ requested: req ? req.value : null, runs: r.results.map((x) => {
+    const dv = Object.fromEntries((await env.DB.prepare("SELECT key, value FROM settings WHERE key IN ('device_last_run','device_run_requested','device_last_result')").all()).results.map((x) => [x.key, x.value]));
+    return json({ requested: req ? req.value : null, device: { last: dv.device_last_run || null, requested: dv.device_run_requested || null, result: dv.device_last_result || null }, runs: r.results.map((x) => {
       let st = {}; try { st = JSON.parse(x.stats_json || '{}'); } catch {}
       if (!owner) delete st.preview;
       return { ...x, stats_json: undefined, stats: st };

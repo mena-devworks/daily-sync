@@ -18,7 +18,8 @@ NOT_COMPANY = re.compile(
     r"myworkdayjobs|workday|greenhouse|lever\.co|smartrecruiters|icims|taleo|successfactors|oraclecloud|bamboohr|"
     r"zohorecruit|zoho\.|jobvite|breezy|recruitee|workable|teamtailor|ashbyhq|jazzhr|recruiterbox|hire\.|"
     r"careers-page|jobs\.|monster|jooble|jobrapido|laimoon|drjobpro|expatriates|gulfnews|khaleejtimes|"
-    r"duckduckgo|bing\.com|microsoft|apple\.com|amazon\.|github|medium\.com|blogspot|wordpress\.com|wixsite)", re.I)
+    r"duckduckgo|bing\.com|mojeek|brave\.com|microsoft|apple\.com|amazon\.|github|medium\.com|blogspot|wordpress\.com|wixsite|"
+    r"join\.com|personio|recruitcrm|freshteam|hirehive|pinpointhq|manatal|applytojob|jometer|occupop)", re.I)
 HR_LOCAL = re.compile(r"(^|[._-])(hr|career|careers|job|jobs|recruit|recruitment|recruiting|talent|hiring|cv|cvs|resume|"
                       r"people|employment|vacanc|hrd|humanresources|human\.resources|apply)", re.I)
 GENERIC_LOCAL = re.compile(r"^(info|contact|contactus|hello|admin|office|enquiry|enquiries|inquiry|inquiries|mail|general|"
@@ -115,11 +116,11 @@ def rank(email):
 
 
 class Finder:
-    def __init__(self, log=print, max_lookups=80, max_seconds=900):
+    def __init__(self, log=print, max_lookups=80, max_seconds=900, max_fails=3):
         self.s = requests.Session()
         self.s.headers.update({"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
         self.log, self.left, self.deadline = log, max_lookups, time.time() + max_seconds
-        self.search_fails = 0
+        self.search_fails, self.max_fails = 0, max_fails  # cloud: stop early when blocked; home PC: keep trying
         self.stats = {"lookups": 0, "found": 0, "search_ok": 0, "search_fail": 0}
 
     def _get(self, url):
@@ -134,11 +135,13 @@ class Finder:
 
     def search(self, company, city):
         """Company website from a free web search (DuckDuckGo HTML, then Bing). Only name-matching domains."""
-        if self.search_fails >= 3:
+        if self.search_fails >= self.max_fails:
             return []
         q = f"{company} {city} official website"
         out = []
+        anylink = r'href="(https?://[^"]+)"'  # any outbound link: looks_like() keeps only name-matching domains
         for url, pat in (("https://html.duckduckgo.com/html/?q=", r'class="result__a"[^>]*href="([^"]+)"'),
+                         ("https://www.mojeek.com/search?q=", anylink), ("https://search.brave.com/search?q=", anylink),
                          ("https://lite.duckduckgo.com/lite/?q=", r'class=.result-link.[^>]*href="([^"]+)"|<a rel="nofollow" href="([^"]+)"'),
                          ("https://www.bing.com/search?setlang=en&q=", r'<li class="b_algo".*?<a[^>]+href="(https?://[^"]+)"')):
             page, _ = self._get(url + requests.utils.quote(q))

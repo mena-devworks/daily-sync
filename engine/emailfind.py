@@ -130,6 +130,18 @@ def rank(email):
     return 9  # a person's or a department's own mailbox (sales, support...) -> not used
 
 
+LEGAL = {"llc", "l", "c", "fze", "fzco", "fzc", "fz", "dmcc", "co", "ltd", "limited", "inc", "corp", "pjsc", "psc", "wll",
+         "spc", "est", "llp", "plc", "sa", "sae", "s", "a", "e"}
+GENERIC_WORDS = {"group", "holding", "holdings", "the", "company", "international", "intl", "trading", "services", "and"}
+PARKED = re.compile(r"domain (is )?for sale|buy this domain|this domain may be for sale|parked (free|domain)|sedoparking|"
+                    r"hugedomains|dan\.com|afternic|godaddy\.com/domains", re.I)
+_AE = [".ae"]; _SA = [".com.sa", ".sa"]; _EG = [".com.eg", ".eg"]
+CITY_TLD = {c: t for t, cs in ((_AE, ["dubai", "abu dhabi", "sharjah", "ajman", "umm al quwain", "ras al khaimah", "fujairah"]),
+                                (_SA, ["riyadh", "jeddah", "mecca", "medina", "dammam", "khobar", "dhahran", "jubail", "al ahsa",
+                                       "taif", "tabuk", "abha", "khamis mushait", "buraidah", "hail", "yanbu", "jazan", "najran"]),
+                                (_EG, ["cairo", "giza", "alexandria", "port said", "ismailia", "suez", "luxor", "aswan"])) for c in cs}
+
+
 def bing_target(href):
     """bing.com/ck/a?...&u=a1<base64url of the real URL> -> the real URL (other links unchanged)."""
     if "bing.com/ck/a" not in href:
@@ -162,6 +174,33 @@ class Finder:
             return (data.decode(r.encoding or "utf-8", "ignore") if isinstance(data, bytes) else str(data)), r.url
         except Exception:
             return None, None
+
+    def guess(self, company, city):
+        """Try the domains a company most likely owns (aramex.com, almarai.com.sa, ...). A domain is accepted only when
+        its page carries the company's name and is not a parked/for-sale page. The email is still read from the site."""
+        words = re.findall(r"[a-z0-9]+", (company or "").lower())
+        w1 = [w for w in words if w not in LEGAL]
+        w2 = [w for w in w1 if w not in GENERIC_WORDS] or w1
+        names = [n for n in dict.fromkeys(["".join(w2), "".join(w1), "-".join(w2)]) if 3 <= len(n) <= 30]
+        cc = CITY_TLD.get((city or "").lower(), [])
+        tlds = list(dict.fromkeys([".com"] + cc + [".net"]))
+        key = max(w2, key=len) if w2 else ""
+        for name in names[:2]:
+            for tld in tlds:
+                site = "https://www." + name + tld
+                page, final = self._get(site)
+                if not page:
+                    site = "https://" + name + tld  # some sites have no www
+                    page, final = self._get(site)
+                if not page:
+                    continue
+                low = page[:30000].lower()
+                real = company_site(final or site)
+                if not real or PARKED.search(low) or (key and len(key) >= 4 and key not in low and "".join(w1) not in low):
+                    continue
+                self.stats["guess_ok"] = self.stats.get("guess_ok", 0) + 1
+                return [real]
+        return []
 
     def search(self, company, city):
         """Company website from a free web search (Bing, then DuckDuckGo). Only name-matching domains."""
@@ -236,6 +275,8 @@ class Finder:
         self.left -= 1
         self.stats["lookups"] += 1
         sites = [s for s in (company_site(h) for h in hints) if s]
+        if not sites:
+            sites = self.guess(company, city)  # likely domain, checked by opening it (search engines block robots)
         if not sites:
             sites = self.search(company, city)
         for site in dict.fromkeys(sites):

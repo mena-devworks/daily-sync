@@ -68,7 +68,7 @@ def work(db):
           AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.job_id = j.id AND a.status IN ('sent','manual','low_score','filtered'))
         GROUP BY j.company, j.country
         ORDER BY (j.country = 'AE') DESC, (j.country = 'SA') DESC, n DESC""")
-    finder = emailfind.Finder(log=log, max_lookups=LOOKUPS, max_seconds=SECONDS)
+    finder = emailfind.Finder(log=log, max_lookups=LOOKUPS, max_seconds=SECONDS, max_fails=25)
     found = checked = 0
     for r in rows:
         key = ckey(r["company"], r["country"])

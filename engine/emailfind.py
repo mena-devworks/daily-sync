@@ -157,7 +157,8 @@ class Finder:
         anylink = r'href="(https?://[^"]+)"'  # any outbound link: looks_like() keeps only name-matching domains
         # Bing first (answers normally from a home PC; its result links are wrapped in bing.com/ck/a?u=a1<base64>),
         # DuckDuckGo often answers with a bot check (HTTP 202) and is tried after it.
-        for url, pat, n in (("https://www.bing.com/search?setlang=en&q=", anylink, 80),
+        cite = r'<cite>([^<]+)</cite>'  # Bing prints each result's address in <cite>
+        for url, pat, n in (("https://www.bing.com/search?setlang=en&q=", anylink + "|" + cite, 500),
                             ("https://html.duckduckgo.com/html/?q=", r'class="result__a"[^>]*href="([^"]+)"', 8),
                             ("https://lite.duckduckgo.com/lite/?q=", r'class=.result-link.[^>]*href="([^"]+)"|<a rel="nofollow" href="([^"]+)"', 8)):
             page, _ = self._get(url + requests.utils.quote(q))
@@ -167,7 +168,7 @@ class Finder:
                 href = html.unescape(next((h for h in href if h), "") if isinstance(href, tuple) else href)
                 if "uddg=" in href:
                     href = unquote(parse_qs(urlparse(href).query).get("uddg", [""])[0])
-                href = bing_target(href)
+                href = bing_target(href.split(" ")[0].replace("\u203a", "").strip())
                 site = company_site(href)
                 if site and looks_like(company, site) and site not in out:
                     out.append(site)

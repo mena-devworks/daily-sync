@@ -53,7 +53,7 @@ def excluded(text):
     return bool(EXCLUDE_TEXT.search(text or ""))
 
 
-SITES = ("linkedin", "indeed", "google")
+SITES = ("linkedin", "indeed")  # google removed 26 Sep: 0 results from GitHub runners
 
 
 def collect(field, country, city, hours_old=48, results=40, log=print):

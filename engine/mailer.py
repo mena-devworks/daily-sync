@@ -16,20 +16,60 @@ def relocation_line(sub, job):
     if not cur or cur == job["country"]:
         return ""
     where = sub.get("current_city") or COUNTRY_NAME.get(cur, "abroad")
-    return f"I am currently based in {where} and ready to relocate to {job['city']}. " + VISA.get(job["country"], "")
+    first = [f"I am currently based in {where} and ready to relocate to {job['city']}.",
+             f"I live in {where} at the moment and am fully prepared to move to {job['city']}.",
+             f"Although I am based in {where} now, I am ready to relocate to {job['city']}."][int(sub.get("id") or 0) % 3]
+    return first + " " + VISA.get(job["country"], "")
 
 
-def compose(sub, profile, job, pitch):
-    at = f" at {job['company']}" if job.get("company") else ""
-    lines = [f"Dear Hiring Team{at},", "",
-             f"I am writing to apply for the {job['title']} position{at} in {job['city']}. "
-             + (pitch.strip() + " " if pitch else "") + "Please find my CV attached.", ""]
+# Several wordings: two subscribers writing to the same company never send the same text
+# (variant = recipient hash + subscriber id, so up to len(GREET) subscribers all differ for one recipient).
+GREET = ["Dear Hiring Team{at},", "Dear Hiring Manager,", "Hello{at_team},", "Dear Recruitment Team{at},",
+         "Good day,", "Dear HR Team{at},", "Dear Sir/Madam,", "Hello Hiring Team,"]
+OPEN = ["I am writing to apply for the {title} position{at} in {city}.",
+        "Please consider my application for the {title} role{at} in {city}.",
+        "I would like to be considered for the {title} vacancy{at} ({city}).",
+        "I am interested in the {title} opening{at} in {city} and would like to apply.",
+        "I am applying for the {title} position{at}, based in {city}.",
+        "I was glad to see the {title} opening{at} in {city}, and I am submitting my application.",
+        "Kindly accept my application for the {title} position{at} in {city}.",
+        "I am reaching out to apply for the {title} job{at} in {city}."]
+CV = ["Please find my CV attached.", "My CV is attached for your review.", "I have attached my CV with full details.",
+      "You will find my CV attached.", "My resume is attached to this email.", "I have enclosed my CV for your consideration.",
+      "Attached is my CV.", "Please see my attached CV."]
+CLOSE = ["I would welcome the opportunity to discuss how I can contribute to your team.",
+         "I would be glad to have an interview at your convenience.",
+         "Thank you for your time; I look forward to hearing from you.",
+         "I am available for an interview whenever suits you.",
+         "I would appreciate the chance to discuss this role with you.",
+         "Thank you for considering my application.",
+         "I hope to hear from you soon regarding next steps.",
+         "I would be happy to provide any further information you need."]
+SIGN = ["Best regards,", "Kind regards,", "Sincerely,", "Many thanks,", "Regards,", "Yours sincerely,", "With thanks,", "Best wishes,"]
+SUBJ = ["Application for {title} – {name}", "{title} application – {name}", "Applying for {title} ({city}) – {name}",
+        "{name} – {title} position", "Job application: {title}", "{title} role – application from {name}",
+        "Application: {title}, {city}", "{name}: application for {title}"]
+
+
+def variant(sub, to):
+    import hashlib
+    h = int(hashlib.md5((to or "").lower().encode()).hexdigest(), 16)
+    return (h + int(sub.get("id") or 0)) % len(GREET)
+
+
+def compose(sub, profile, job, pitch, to=None):
+    v = variant(sub, to)
+    pick = lambda arr, k=0: arr[(v + k) % len(arr)]  # shifted per part: sentence combinations vary too
+    co = job.get("company")
+    f = dict(at=f" at {co}" if co else "", at_team=f" {co} team" if co else "", title=job["title"], city=job["city"], name=sub["name"])
+    lines = [pick(GREET).format(**f), "",
+             pick(OPEN, 3).format(**f) + " " + (pitch.strip() + " " if pitch else "") + pick(CV, 5), ""]
     rel = relocation_line(sub, job)
     if rel:
         lines += [rel, ""]
-    lines += ["I would welcome the opportunity to discuss how I can contribute to your team.", "", "Best regards,",
-              sub["name"], " | ".join(v for v in [profile.get("phone"), sub["email"]] if v)]
-    return f"Application for {job['title']} – {sub['name']}", "\n".join(lines)
+    lines += [pick(CLOSE, 1), "", pick(SIGN, 6),
+              sub["name"], " | ".join(x for x in [profile.get("phone"), sub["email"]] if x)]
+    return pick(SUBJ, 2).format(**f), "\n".join(lines)
 
 
 class Mailer:

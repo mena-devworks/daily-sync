@@ -301,7 +301,7 @@ class Engine:
                 note("same HR inside cooldown")
                 to = None  # same HR mailbox inside the cooldown window -> manual
             if to and sent_today < daily and (app_pw or can_central):
-                subject, body = compose(sub, prof, j, pitch)
+                subject, body = compose(sub, prof, j, pitch, to)
                 sent_to.add(to)
                 if self.dry:
                     self.preview(sub, j, sc, "email", to, subject, body); sent_today += 1; note("sent"); continue
@@ -335,8 +335,13 @@ class Engine:
                     self.record(sub, j, sc, "manual", None, "manual")
             else:
                 self.record(sub, j, sc, "manual", None, "held")
-        log(f"  email jobs: {why} | scores: {dict(sorted(hist.items()))}")
-        self.stats.setdefault("diag", {})[sub["id"]] = {"email_jobs": why, "scores": hist}
+        doms = {}
+        for j, _, _ in manual_q:  # good matches with no email: where do they send people to apply?
+            d = re.sub(r"^www\.", "", (re.match(r"https?://([^/]+)", j["url"] or "") or [None, "?"])[1])
+            doms[d] = doms.get(d, 0) + 1
+        top = dict(sorted(doms.items(), key=lambda kv: -kv[1])[:12])
+        log(f"  email jobs: {why} | scores: {dict(sorted(hist.items()))} | no-email apply sites: {top}")
+        self.stats.setdefault("diag", {})[sub["id"]] = {"email_jobs": why, "scores": hist, "apply_sites": top}
         if manual_q:
             log(f"  email today: {sent_today}/{daily} | manual listed: {min(allowed, len(manual_q))}, not listed: {max(0, len(manual_q) - allowed)}")
 

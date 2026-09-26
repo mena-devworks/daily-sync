@@ -22,7 +22,7 @@ QUERY = {
 }
 
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-BAD_EMAIL = re.compile(r"(no-?reply|donotreply|example\.|@sentry|\.png|\.jpg|privacy@|abuse@|webmaster@|support@linkedin|@indeed|@linkedin|accommodation|disability|reasonable|dataprotection|gdpr|legal@|press@|media@|investor|billing@|sales@|booking)", re.I)
+BAD_EMAIL = re.compile(r"(no-?reply|donotreply|example\.|@sentry|\.png|\.jpg|privacy@|abuse@|webmaster@|support@linkedin|@indeed|@linkedin|accommodation|disability|reasonable|dataprotection|gdpr|legal@|press@|media@|investor|billing@|sales@|booking|@join\.com|@personio|@recruitcrm)", re.I)
 # Only-for-others filters (added in Ali's tool after real mistakes)
 EXCLUDE_TEXT = re.compile(
     r"\b(female (candidates )?only|females only|ladies only|women only|only females?|"

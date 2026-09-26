@@ -106,6 +106,21 @@ def looks_like(company, site):
     return len(initials) >= 3 and dom.startswith(initials)
 
 
+def name_score(company, site):
+    """How much of the company name the domain carries (all words count, including 'group', 'al', ...)."""
+    dom = base_domain(urlparse(site).hostname).split(".")[0]
+    words = [w for w in re.findall(r"[a-z0-9]+", (company or "").lower()) if len(w) >= 2]
+    joined = "".join(words)
+    return sum(len(w) for w in words if w in dom) + (5 if dom == joined or joined.startswith(dom) and len(dom) >= 6 else 0)
+
+
+def short_name_ok(company, site):
+    """Short names must match fully: "Emirates NBD" is not emirates.com (the airline)."""
+    toks = _tokens(company)
+    dom = base_domain(urlparse(site).hostname).split(".")[0]
+    return len(toks) > 2 or all(t in dom for t in toks)
+
+
 def rank(email):
     local = email.split("@")[0]
     if HR_LOCAL.search(local):
@@ -152,15 +167,18 @@ class Finder:
         """Company website from a free web search (Bing, then DuckDuckGo). Only name-matching domains."""
         if self.search_fails >= self.max_fails:
             return []
-        q = f"{company} {city} official website"
         out = []
         anylink = r'href="(https?://[^"]+)"'  # any outbound link: looks_like() keeps only name-matching domains
-        # Bing first (answers normally from a home PC; its result links are wrapped in bing.com/ck/a?u=a1<base64>),
-        # DuckDuckGo often answers with a bot check (HTTP 202) and is tried after it.
         cite = r'<cite>([^<]+)</cite>'  # Bing prints each result's address in <cite>
-        for url, pat, n in (("https://www.bing.com/search?setlang=en&q=", anylink + "|" + cite, 500),
-                            ("https://html.duckduckgo.com/html/?q=", r'class="result__a"[^>]*href="([^"]+)"', 8),
-                            ("https://lite.duckduckgo.com/lite/?q=", r'class=.result-link.[^>]*href="([^"]+)"|<a rel="nofollow" href="([^"]+)"', 8)):
+        # Bing first (answers normally from a home PC; result links are wrapped in bing.com/ck/a?u=a1<base64>).
+        # It sometimes answers a quick second query with an empty page: pause, then retry with another wording.
+        # DuckDuckGo often answers with a bot check (HTTP 202) and is tried last.
+        tries = [("https://www.bing.com/search?setlang=en&q=", f"{company} {city} official website", anylink + "|" + cite, 500),
+                 ("https://www.bing.com/search?setlang=en&q=", f"{company} {city}", anylink + "|" + cite, 500),
+                 ("https://html.duckduckgo.com/html/?q=", f"{company} {city} official website", r'class="result__a"[^>]*href="([^"]+)"', 8),
+                 ("https://lite.duckduckgo.com/lite/?q=", f"{company} {city} official website", r'class=.result-link.[^>]*href="([^"]+)"|<a rel="nofollow" href="([^"]+)"', 8)]
+        for url, q, pat, n in tries:
+            time.sleep(2)
             page, _ = self._get(url + requests.utils.quote(q))
             if not page:
                 continue
@@ -170,11 +188,11 @@ class Finder:
                     href = unquote(parse_qs(urlparse(href).query).get("uddg", [""])[0])
                 href = bing_target(href.split(" ")[0].replace("\u203a", "").strip())
                 site = company_site(href)
-                if site and looks_like(company, site) and site not in out:
+                if site and looks_like(company, site) and short_name_ok(company, site) and site not in out:
                     out.append(site)
             if out:
                 break
-            time.sleep(1)
+        out.sort(key=lambda site: -name_score(company, site))  # "Emirates NBD": emiratesnbd.com before emirates.com
         self.stats["search_ok" if out else "search_fail"] += 1
         self.search_fails = 0 if out else self.search_fails + 1
         return out[:2]

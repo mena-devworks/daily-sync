@@ -14,7 +14,7 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 # job boards, ATS, social, directories: never "the company's own site"
 NOT_COMPANY = re.compile(
     r"(linkedin|indeed|bayt|glassdoor|naukri|gulftalent|wuzzuf|forasna|tanqeeb|dubizzle|google|facebook|instagram|"
-    r"twitter|x\.com|youtube|tiktok|wikipedia|crunchbase|zawya|bloomberg|yellowpages|yello|kompass|dnb\.com|"
+    r"twitter|(?<![a-z0-9-])x\.com|youtube|tiktok|wikipedia|crunchbase|zawya|bloomberg|yellowpages|yello|kompass|dnb\.com|"
     r"myworkdayjobs|workday|greenhouse|lever\.co|smartrecruiters|icims|taleo|successfactors|oraclecloud|bamboohr|"
     r"zohorecruit|zoho\.|jobvite|breezy|recruitee|workable|teamtailor|ashbyhq|jazzhr|recruiterbox|hire\.|"
     r"careers-page|jobs\.|monster|jooble|jobrapido|laimoon|drjobpro|expatriates|gulfnews|khaleejtimes|"
@@ -115,6 +115,21 @@ def rank(email):
     return 9  # a person's or a department's own mailbox (sales, support...) -> not used
 
 
+def bing_target(href):
+    """bing.com/ck/a?...&u=a1<base64url of the real URL> -> the real URL (other links unchanged)."""
+    if "bing.com/ck/a" not in href:
+        return href
+    import base64
+    u = parse_qs(urlparse(href).query).get("u", [""])[0]
+    if u.startswith("a1"):
+        b = u[2:] + "=" * (-len(u[2:]) % 4)
+        try:
+            return base64.urlsafe_b64decode(b).decode("utf-8", "ignore")
+        except Exception:
+            pass
+    return href
+
+
 class Finder:
     def __init__(self, log=print, max_lookups=80, max_seconds=900, max_fails=3):
         self.s = requests.Session()
@@ -134,23 +149,25 @@ class Finder:
             return None, None
 
     def search(self, company, city):
-        """Company website from a free web search (DuckDuckGo HTML, then Bing). Only name-matching domains."""
+        """Company website from a free web search (Bing, then DuckDuckGo). Only name-matching domains."""
         if self.search_fails >= self.max_fails:
             return []
         q = f"{company} {city} official website"
         out = []
         anylink = r'href="(https?://[^"]+)"'  # any outbound link: looks_like() keeps only name-matching domains
-        for url, pat in (("https://html.duckduckgo.com/html/?q=", r'class="result__a"[^>]*href="([^"]+)"'),
-                         ("https://www.mojeek.com/search?q=", anylink), ("https://search.brave.com/search?q=", anylink),
-                         ("https://lite.duckduckgo.com/lite/?q=", r'class=.result-link.[^>]*href="([^"]+)"|<a rel="nofollow" href="([^"]+)"'),
-                         ("https://www.bing.com/search?setlang=en&q=", r'<li class="b_algo".*?<a[^>]+href="(https?://[^"]+)"')):
+        # Bing first (answers normally from a home PC; its result links are wrapped in bing.com/ck/a?u=a1<base64>),
+        # DuckDuckGo often answers with a bot check (HTTP 202) and is tried after it.
+        for url, pat, n in (("https://www.bing.com/search?setlang=en&q=", anylink, 80),
+                            ("https://html.duckduckgo.com/html/?q=", r'class="result__a"[^>]*href="([^"]+)"', 8),
+                            ("https://lite.duckduckgo.com/lite/?q=", r'class=.result-link.[^>]*href="([^"]+)"|<a rel="nofollow" href="([^"]+)"', 8)):
             page, _ = self._get(url + requests.utils.quote(q))
             if not page:
                 continue
-            for href in re.findall(pat, page, re.S)[:8]:
+            for href in re.findall(pat, page, re.S)[:n]:
                 href = html.unescape(next((h for h in href if h), "") if isinstance(href, tuple) else href)
                 if "uddg=" in href:
                     href = unquote(parse_qs(urlparse(href).query).get("uddg", [""])[0])
+                href = bing_target(href)
                 site = company_site(href)
                 if site and looks_like(company, site) and site not in out:
                     out.append(site)

@@ -16,6 +16,7 @@ DEFAULTS = {"daily_apply_limit": "20", "central_daily_limit": "5", "min_match_sc
 FIELDS = list(sources.QUERY)
 BACKLOG_DAYS, MAX_COMBOS, SCORE_BATCH, MAX_CANDIDATES, MAX_EMAIL_CANDIDATES, WORKERS = 14, 60, 12, 100, 150, 4
 OUT = os.environ.get("ENGINE_OUT", "out")
+SCORE_PROMPT_V = "2"  # bump when the scoring prompt changes: low-score jobs get scored again once
 
 
 def utc(dt=None, days=0):
@@ -202,9 +203,12 @@ class Engine:
 
     def _score_call(self, prof, items):
             return self.ai().json(
-                "Score how well this candidate fits each job (0-100). Be strict: required experience, field, language and "
-                "hard requirements matter. Score 0 if the job is only for a gender/nationality the candidate is not, "
-                "or needs a licence/degree the candidate lacks. Also write 'pitch': ONE sentence (max 30 words) for the "
+                "Score 0-100 how worthwhile it is to send this candidate's application to each job. Scale: "
+                "80-100 same kind of role and meets the stated requirements; 60-79 related role or clearly transferable "
+                "experience (e.g. hotel reservations -> customer service, travel consultant, front desk, call centre), worth applying; "
+                "40-59 weak link; 0-39 a different profession or a hard requirement is missing. Score 0 if the job is only "
+                "for a gender/nationality the candidate is not, or needs a licence/degree the candidate lacks. "
+                "Do not lower the score only because the candidate lives in another country. Also write 'pitch': ONE sentence (max 30 words) for the "
                 "application email, truthful and based only on the candidate profile (no numbers that are not in it).\n"
                 f"Return JSON {{\"results\":[{{\"id\":0,\"score\":0,\"pitch\":\"\"}}]}}\n"
                 f"Candidate: {json.dumps(prof, ensure_ascii=False)[:5000]}\nJobs: {json.dumps(items, ensure_ascii=False)}")
@@ -259,11 +263,21 @@ class Engine:
             log(f"  ! site hints: {type(e).__name__}: {e}")
         min_score = int(self.s["min_match_score"])
         cache, sent_to, manual_q = {}, set(), []
+        why, hist = {}, {}  # diagnostics: what happened to jobs that have an HR email; score spread
+        def note(k):
+            why[k] = why.get(k, 0) + 1
         for j in sorted(keep, key=lambda j: -scores.get(j["id"], (0, ""))[0]):
             sc, pitch = scores.get(j["id"], (None, ""))
+            if sc is not None:
+                b = f"{sc // 20 * 20}-{sc // 20 * 20 + 19}"
+                hist[b] = hist.get(b, 0) + 1
             if sc is None:
+                if j["apply_email"]:
+                    note("not scored")
                 continue  # not scored (AI budget) -> retried next run
             if sc < min_score:
+                if j["apply_email"]:
+                    note(f"low score {sc // 10 * 10}s")
                 self.record(sub, j, sc, "manual", None, "low_score"); continue
             pitch = cvmod._guard_numbers(pitch, allowed_nums)
             try:
@@ -279,26 +293,30 @@ class Engine:
                 except Exception as e:
                     log(f"  ! email finder {j['company']}: {type(e).__name__}: {e}")
             if to and (to in sent_to or sources.BAD_EMAIL.search(to)):
+                note("same HR this run" if to in sent_to else "blocked address")
                 to = None  # one email per HR mailbox per run; re-check filters on stored jobs
             can_central = central_today < central_cap
             if to and self.db.one("SELECT 1 x FROM applications WHERE subscriber_id = ? AND recipient LIKE ? AND sent_at >= ? LIMIT 1",
                                   sub["id"], to + "%", cooldown_since):
+                note("same HR inside cooldown")
                 to = None  # same HR mailbox inside the cooldown window -> manual
             if to and sent_today < daily and (app_pw or can_central):
                 subject, body = compose(sub, prof, j, pitch)
                 sent_to.add(to)
                 if self.dry:
-                    self.preview(sub, j, sc, "email", to, subject, body); sent_today += 1; continue
+                    self.preview(sub, j, sc, "email", to, subject, body); sent_today += 1; note("sent"); continue
                 try:
                     mode = self.mailer.send(sub, app_pw, to, subject, body, pdf, f"{slug(sub['name'])}-cv.pdf", allow_central=can_central)
                     sent_today += 1
                     central_today += mode == "central"
                     self.record(sub, j, sc, "email", to + (" [central]" if mode == "central" else ""), "sent", sent=True)
+                    note("sent")
                     time.sleep(3)
                 except Exception as e:
                     self.err(f"#{sub['id']} send to {to}: {e}")
                     self.record(sub, j, sc, "email", to, "failed")
             elif to and sent_today >= daily:
+                note("quota full")
                 continue  # has an email but today's email quota is used -> stays a candidate for tomorrow
             else:
                 manual_q.append((j, sc, checked))
@@ -317,6 +335,8 @@ class Engine:
                     self.record(sub, j, sc, "manual", None, "manual")
             else:
                 self.record(sub, j, sc, "manual", None, "held")
+        log(f"  email jobs: {why} | scores: {dict(sorted(hist.items()))}")
+        self.stats.setdefault("diag", {})[sub["id"]] = {"email_jobs": why, "scores": hist}
         if manual_q:
             log(f"  email today: {sent_today}/{daily} | manual listed: {min(allowed, len(manual_q))}, not listed: {max(0, len(manual_q) - allowed)}")
 
@@ -390,6 +410,10 @@ class Engine:
         run_id = self.run_id = self.db.one("INSERT INTO runs (place, status) VALUES (?, 'running') RETURNING id", self.place)["id"]
         status = "ok"
         try:
+            if self.s.get("score_prompt_v") != SCORE_PROMPT_V:
+                self.db.q("DELETE FROM applications WHERE status = 'low_score'")
+                self.db.set_setting("score_prompt_v", SCORE_PROMPT_V)
+                log("scoring prompt changed: old low-score jobs will be scored again")
             subs = [s for s in self.subscribers() if (s.get("cv_text") or "").strip()]
             self.stats["subscribers"] = len(subs)
             log(f"Active subscribers with a CV: {len(subs)} | dry run: {self.dry}")
